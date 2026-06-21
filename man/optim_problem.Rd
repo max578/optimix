@@ -25,6 +25,12 @@ dimension.}
 
 \item{seed}{A single integer seed for reproducible stochastic search, or
 \code{NA} for none.}
+
+\item{delta_fn}{An optional incremental-scoring function with signature
+\verb{function(perm, i, j)} returning the change in the objective when the
+permutation entries at positions \code{i} and \code{j} are swapped. When supplied, a
+combinatorial engine uses it for fast incremental scoring instead of
+re-evaluating \code{fn}. \code{NULL} (the default) means none.}
 }
 \value{
 An S7 object of class \code{optim_problem}.

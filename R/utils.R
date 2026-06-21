@@ -26,6 +26,9 @@
   if (length(self@seed) != 1L) {
     msgs <- c(msgs, "`seed` must be a single number or NA")
   }
+  if (!is.null(self@delta_fn) && !is.function(self@delta_fn)) {
+    msgs <- c(msgs, "`delta_fn` must be a function or NULL")
+  }
   if (length(msgs) == 0L) NULL else paste(msgs, collapse = "; ")
 }
 
@@ -38,6 +41,8 @@
 .space_dim <- function(space) {
   if (S7::S7_inherits(space, space_box)) {
     length(space@lower)
+  } else if (S7::S7_inherits(space, space_permutation)) {
+    as.integer(space@n)
   } else {
     NA_integer_
   }
@@ -50,7 +55,13 @@
 #' @noRd
 #' @keywords internal
 .space_class_name <- function(space) {
-  if (S7::S7_inherits(space, space_box)) "space_box" else "unknown"
+  if (S7::S7_inherits(space, space_box)) {
+    "space_box"
+  } else if (S7::S7_inherits(space, space_permutation)) {
+    "space_permutation"
+  } else {
+    "unknown"
+  }
 }
 
 #' Build the function an engine minimises

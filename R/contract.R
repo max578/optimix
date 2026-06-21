@@ -53,6 +53,38 @@ space_box <- S7::new_class(
   }
 )
 
+# Combinatorial design spaces ---------------------------------------------
+
+#' Permutation design space
+#'
+#' A combinatorial design space whose points are permutations of `seq_len(n)`.
+#' Use it for ordering and assignment problems via the powerful path:
+#' `optim_problem(fn, space = space_permutation(n))`, where `fn` takes a
+#' permutation (an integer vector).
+#'
+#' @param n A single integer of at least 2: the number of items to order.
+#'
+#' @returns An S7 object of class `space_permutation`.
+#' @examples
+#' space_permutation(5)
+#' @export
+space_permutation <- S7::new_class(
+  "space_permutation",
+  parent = opt_space,
+  properties = list(
+    n = S7::class_numeric
+  ),
+  validator = function(self) {
+    if (length(self@n) != 1L) {
+      "`n` must be a single integer"
+    } else if (self@n < 2) {
+      "`n` must be at least 2"
+    } else {
+      NULL
+    }
+  }
+)
+
 # Objective specification -------------------------------------------------
 
 #' Objective specification
@@ -150,6 +182,11 @@ objective_expensive <- function() {
 #'   dimension.
 #' @param seed A single integer seed for reproducible stochastic search, or
 #'   `NA` for none.
+#' @param delta_fn An optional incremental-scoring function with signature
+#'   `function(perm, i, j)` returning the change in the objective when the
+#'   permutation entries at positions `i` and `j` are swapped. When supplied, a
+#'   combinatorial engine uses it for fast incremental scoring instead of
+#'   re-evaluating `fn`. `NULL` (the default) means none.
 #'
 #' @usage NULL
 #' @returns An S7 object of class `optim_problem`.
@@ -171,7 +208,8 @@ optim_problem <- S7::new_class(
     maximise = S7::new_property(S7::class_logical, default = FALSE),
     max_evals = S7::new_property(S7::class_numeric, default = NA_real_),
     warm_start = S7::new_property(S7::class_numeric, default = numeric(0)),
-    seed = S7::new_property(S7::class_numeric, default = NA_real_)
+    seed = S7::new_property(S7::class_numeric, default = NA_real_),
+    delta_fn = S7::new_property(S7::class_any, default = NULL)
   ),
   validator = function(self) {
     .validate_problem(self)

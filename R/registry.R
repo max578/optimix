@@ -167,6 +167,11 @@ list_optimisers <- function() {
     global = FALSE, available = function() TRUE, run = .run_base_optim
   ))
   register_optimiser(optim_engine(
+    name = "perm_sa", pkg = "base", accepts = "space_permutation",
+    global = TRUE, stochastic = TRUE, dim_min = 2,
+    available = function() TRUE, run = .run_perm_sa
+  ))
+  register_optimiser(optim_engine(
     name = "gensa", pkg = "GenSA", accepts = "space_box",
     global = TRUE, noise_tolerant = TRUE, stochastic = TRUE,
     available = function() requireNamespace("GenSA", quietly = TRUE),

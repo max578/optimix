@@ -3,7 +3,7 @@ test_that("the built-in engines are registered", {
   expect_s3_class(tab, "data.frame")
   expect_true(all(
     c(
-      "base_optim", "gensa", "deoptim", "nloptr_directl", "cmaes",
+      "base_optim", "perm_sa", "gensa", "deoptim", "nloptr_directl", "cmaes",
       "deoptimr", "dfoptim_hjkb", "nloptr_bobyqa", "cmaes_ipop", "bayesopt",
       "proxymix_map"
     )

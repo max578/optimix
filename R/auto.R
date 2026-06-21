@@ -86,6 +86,14 @@
 .auto_select <- function(problem) {
   installed <- .installed_engine_names()
 
+  # Combinatorial (permutation) spaces go to the permutation annealer.
+  if (S7::S7_inherits(problem@space, space_permutation)) {
+    return(list(
+      tier = 1L, engine = "perm_sa",
+      why = "permutation design space: simulated annealing over swaps"
+    ))
+  }
+
   # Expensive objectives go to the surrogate engine (few true evaluations).
   if (identical(problem@objective@kind, "expensive")) {
     pick <- .prefer_engine(
