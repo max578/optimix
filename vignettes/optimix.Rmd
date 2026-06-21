@@ -1,0 +1,69 @@
+---
+title: "Getting started with optimix"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Getting started with optimix}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+library(optimix)
+```
+
+## One verb
+
+`optimix` exposes a single verb. The easy path takes a function and box
+bounds, in the spirit of `stats::optim()`:
+
+```{r easy}
+result <- optimix(
+  function(x) sum(x^2),
+  lower = c(-5, -5),
+  upper = c(5, 5),
+  method = "base_optim"
+)
+result
+```
+
+`minimise()` and `maximise()` are readable aliases for the same call.
+
+## Choosing the optimiser
+
+With the default `method = "auto"`, optimix selects an optimiser for the
+problem from those whose package is installed, and records the choice in the
+result's provenance. `list_optimisers()` shows what is available:
+
+```{r registry}
+list_optimisers()
+```
+
+## An `optim()`-compatible result
+
+The result is shaped like a `stats::optim()` return value -- `par`, `value`,
+`counts`, `convergence`, `message` -- so existing code keeps working, with
+optimix extras alongside. The usual accessors apply:
+
+```{r accessors}
+coef(result)
+as.data.frame(result)
+as_optim(result)
+```
+
+## The power path
+
+For noise, an evaluation budget, a warm start, or a seed, build an
+`optim_problem()` directly and pass it to `optimix()`:
+
+```{r power}
+problem <- optim_problem(
+  fn = function(x) sum((x - 1)^2),
+  space = space_box(lower = c(-5, -5), upper = c(5, 5)),
+  max_evals = 2000
+)
+optimix(problem, method = "base_optim")
+```
+
+The same problem object is what the easy path builds for you behind the
+scenes -- one contract, two front doors.

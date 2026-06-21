@@ -1,0 +1,43 @@
+Package: optimix
+Title: A Unified Contract and Auto-Selector for Efficient Optimisers
+Version: 0.0.0.9000
+Authors@R:
+    person("Max", "Moldovan", , "max.moldovan@gmail.com",
+           role = c("aut", "cre", "cph"),
+           comment = c(ORCID = "0000-0001-9680-8474"))
+Description: Provides a single typed problem contract over a curated portfolio
+    of efficient optimisers, with an automatic per-instance selector that picks
+    the best optimiser for a given problem and returns it in an
+    'stats::optim()'-compatible result object. The base solver runs with no
+    suggested packages installed; each additional engine, and an optional
+    mixture-valued mapper from 'proxymix', is loaded lazily only when used.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Language: en-AU
+Depends:
+    R (>= 4.3)
+Imports:
+    graphics,
+    S7,
+    stats,
+    utils
+Suggests:
+    cmaes,
+    DEoptim,
+    DEoptimR,
+    dfoptim,
+    DiceKriging,
+    GenSA,
+    knitr,
+    nloptr,
+    proxymix,
+    rmarkdown,
+    smoof,
+    testthat (>= 3.0.0)
+VignetteBuilder:
+    knitr
+URL: https://github.com/max578/optimix
+BugReports: https://github.com/max578/optimix/issues
+Config/testthat/edition: 3
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3

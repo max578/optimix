@@ -1,0 +1,144 @@
+# optimix.R -- The user-facing facade and the dispatcher.
+#
+# optimix() is the one verb: an optim()-shaped easy path (fn + lower + upper)
+# that builds a problem internally, plus a power path that accepts a prepared
+# optim_problem. minimise()/maximise() are readable aliases. .optimise() picks
+# the engine (by name or via the selector), checks it fits, and runs it.
+
+#' Optimise a function
+#'
+#' The single entry point. Pass a function with `lower` and `upper` bounds for
+#' the easy path, or a prepared [optim_problem()] for full control. With
+#' `method = "auto"` (the default) the best available optimiser is chosen for
+#' the problem and recorded in the result's provenance.
+#'
+#' @param fn The objective function, taking a numeric vector and returning a
+#'   single finite number; or a prepared [optim_problem()], in which case
+#'   `lower`, `upper`, `maximise`, and `max_evals` are ignored.
+#' @param lower A numeric vector of lower bounds (easy path).
+#' @param upper A numeric vector of upper bounds (easy path).
+#' @param ... Further arguments passed on to `fn` at each evaluation.
+#' @param method The optimiser to use: `"auto"` (the default) to select one per
+#'   instance, `"race"` to race the installed global engines and commit to the
+#'   leader, or the name of a registered engine (see [list_optimisers()]).
+#' @param maximise A single logical; maximise rather than minimise. Defaults to
+#'   `FALSE`.
+#' @param max_evals A soft budget of objective evaluations, or `NULL` to let the
+#'   engine use its own default.
+#'
+#' @returns An `optimix_result`: a list shaped like a [stats::optim()] result
+#'   (`par`, `value`, `counts`, `convergence`, `message`) with optimix extras
+#'   (`provenance`, `archive`, `map`, `diagnostics`, `problem`). It has
+#'   `print()`, `summary()`, `plot()`, `coef()`, `as.data.frame()`, and
+#'   [as_optim()] methods.
+#' @examples
+#' # Easy path: minimise a quadratic on a box.
+#' optimix(function(x) sum(x^2), lower = c(-5, -5), upper = c(5, 5),
+#'         method = "base_optim")
+#'
+#' # Power path: a prepared problem.
+#' prob <- optim_problem(
+#'   fn = function(x) sum((x - 1)^2),
+#'   space = space_box(lower = c(-5, -5), upper = c(5, 5))
+#' )
+#' optimix(prob, method = "base_optim")
+#' @export
+optimix <- function(fn, lower = NULL, upper = NULL, ..., method = "auto",
+                    maximise = FALSE, max_evals = NULL) {
+  if (S7::S7_inherits(fn, optim_problem)) {
+    problem <- fn
+  } else {
+    .check_fn(fn)
+    .check_bounds(lower, upper)
+    dots <- list(...)
+    obj_fn <- if (length(dots) > 0L) {
+      function(x) do.call(fn, c(list(x), dots))
+    } else {
+      fn
+    }
+    problem <- optim_problem(
+      fn = obj_fn,
+      space = space_box(lower = lower, upper = upper),
+      maximise = isTRUE(maximise),
+      max_evals = if (is.null(max_evals)) NA_real_ else as.numeric(max_evals)
+    )
+  }
+  .optimise(problem, method = method)
+}
+
+#' @rdname optimix
+#' @export
+minimise <- function(fn, lower, upper, ...) {
+  optimix(fn, lower = lower, upper = upper, ..., maximise = FALSE)
+}
+
+#' @rdname optimix
+#' @export
+maximise <- function(fn, lower, upper, ...) {
+  optimix(fn, lower = lower, upper = upper, ..., maximise = TRUE)
+}
+
+#' Resolve a method and run it
+#'
+#' Dispatches `"auto"` (tier-1/2/3 escalation), `"race"` (an explicit race of
+#' the installed global engines), or a named engine.
+#'
+#' @param problem An [optim_problem].
+#' @param method `"auto"`, `"race"`, or a registered engine name.
+#' @returns An `optimix_result`.
+#' @noRd
+#' @keywords internal
+.optimise <- function(problem, method = "auto") {
+  if (identical(method, "race")) {
+    return(.optimise_race(problem))
+  }
+  if (identical(method, "auto")) {
+    plan <- .auto_select(problem)
+    if (isTRUE(plan$tier == 3L)) return(.run_race(problem, plan))
+    name <- plan$engine
+    why <- plan$why
+  } else {
+    name <- method
+    why <- "user-specified"
+  }
+  engine <- .get_engine(name)
+  if (is.null(engine)) {
+    stop(call. = FALSE, sprintf(
+      "Unknown optimiser `%s`. See `list_optimisers()` for the choices.", name
+    ))
+  }
+  if (!isTRUE(engine@available())) {
+    stop(call. = FALSE, sprintf(
+      "Optimiser `%s` needs package `%s`. Install it, or use method = \"auto\".",
+      name, engine@pkg
+    ))
+  }
+  .check_engine_fits(engine, problem)
+  res <- engine@run(problem)
+  res$provenance$engine <- name
+  res$provenance$why <- why
+  res
+}
+
+#' Race the installed global engines and commit to the leader
+#'
+#' @param problem An [optim_problem].
+#' @returns An `optimix_result`.
+#' @noRd
+#' @keywords internal
+.optimise_race <- function(problem) {
+  installed <- .installed_engine_names()
+  race_set <- .race_candidates(installed)
+  if (length(race_set) < 2L) {
+    stop(
+      call. = FALSE,
+      "Racing needs at least two installed global engines, e.g. 'GenSA'."
+    )
+  }
+  plan <- list(
+    race = race_set, ela = list(best = .start_point(problem)),
+    n_ela = 0L, features = NULL,
+    why = sprintf("explicit race of %d engines", length(race_set))
+  )
+  .run_race(problem, plan)
+}

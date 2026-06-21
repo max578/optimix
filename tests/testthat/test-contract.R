@@ -1,0 +1,29 @@
+test_that("space_box validates its bounds", {
+  expect_error(space_box(lower = c(0, 0), upper = 1), "same length")
+  expect_error(space_box(lower = c(2, 0), upper = c(1, 1)), "less than or equal")
+  expect_error(space_box(lower = numeric(0), upper = numeric(0)), "at least one")
+  sp <- space_box(lower = c(-1, -1), upper = c(1, 1))
+  expect_equal(.space_dim(sp), 2L)
+})
+
+test_that("objective specifications construct as declared", {
+  expect_equal(objective_deterministic()@kind, "deterministic")
+  noisy <- objective_noisy(sd = 0.2)
+  expect_equal(noisy@kind, "noisy")
+  expect_equal(noisy@noise_sd, 0.2)
+  expect_equal(objective_expensive()@kind, "expensive")
+})
+
+test_that("optim_problem validates warm_start length", {
+  expect_error(
+    optim_problem(
+      fn = sphere,
+      space = space_box(c(-1, -1), c(1, 1)),
+      warm_start = c(0, 0, 0)
+    ),
+    "warm_start"
+  )
+  prob <- optim_problem(fn = sphere, space = space_box(c(-1, -1), c(1, 1)))
+  expect_true(S7::S7_inherits(prob, optim_problem))
+  expect_equal(prob@objective@kind, "deterministic")
+})

@@ -1,0 +1,20 @@
+test_that("ELA features separate a smooth quadratic from a rugged landscape", {
+  lower <- c(-5, -5)
+  upper <- c(5, 5)
+  set.seed(1)
+  smooth <- optim_problem(fn = sphere, space = space_box(lower, upper))
+  s_smooth <- .ela_sample(smooth, .ela_size(2))
+  f_smooth <- .ela_features(s_smooth$X, s_smooth$y)
+  rugged <- optim_problem(fn = rastrigin, space = space_box(lower, upper))
+  s_rugged <- .ela_sample(rugged, .ela_size(2))
+  f_rugged <- .ela_features(s_rugged$X, s_rugged$y)
+  expect_gt(f_smooth[["quad_r2"]], 0.97)
+  expect_lt(f_rugged[["quad_r2"]], f_smooth[["quad_r2"]])
+})
+
+test_that("the Latin-hypercube design stays within the box", {
+  design <- .ela_lhs(50, c(-1, -2), c(1, 2))
+  expect_true(all(design[, 1] >= -1 & design[, 1] <= 1))
+  expect_true(all(design[, 2] >= -2 & design[, 2] <= 2))
+  expect_equal(nrow(design), 50L)
+})
