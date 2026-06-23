@@ -27,3 +27,9 @@ test_that("optim_problem validates warm_start length", {
   expect_true(S7::S7_inherits(prob, optim_problem))
   expect_equal(prob@objective@kind, "deterministic")
 })
+
+test_that("objective specifications reject a negative noise sd", {
+  expect_error(objective_noisy(sd = -1), "non-negative")
+  expect_error(objective_spec(kind = "noisy", noise_sd = -0.5), "non-negative")
+  expect_true(is.na(objective_noisy()@noise_sd))
+})

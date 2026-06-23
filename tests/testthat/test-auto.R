@@ -31,3 +31,23 @@ test_that("the race method returns a tier-3 result", {
   expect_equal(res$provenance$tier, 3L)
   expect_lt(res$value, 1e-1)
 })
+
+test_that("auto falls back from the surrogate when the problem is too high-dimensional", {
+  skip_if_not_installed("GenSA")
+  prob <- optim_problem(
+    fn = function(x) sum(x^2), space = space_box(rep(-5, 20), rep(5, 20)),
+    objective = objective_expensive(), max_evals = 200
+  )
+  res <- optimix(prob, method = "auto")
+  expect_false(identical(res$provenance$engine, "bayesopt"))
+  expect_true(res$provenance$engine %in%
+    c("gensa", "deoptimr", "deoptim", "base_optim"))
+})
+
+test_that("the race method rejects a non-box design space cleanly", {
+  prob <- optim_problem(
+    fn = function(p) sum(abs(diff(p))),
+    space = space_permutation(6L), max_evals = 200
+  )
+  expect_error(optimix(prob, method = "race"), "box design space")
+})
