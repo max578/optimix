@@ -50,6 +50,13 @@ optimix <- function(fn, lower = NULL, upper = NULL, ..., method = "auto",
   } else {
     .check_fn(fn)
     .check_bounds(lower, upper)
+    if (!is.logical(maximise) || length(maximise) != 1L || is.na(maximise)) {
+      stop(call. = FALSE, "`maximise` must be a single `TRUE` or `FALSE`.")
+    }
+    if (!is.null(max_evals) &&
+        (!is.numeric(max_evals) || length(max_evals) != 1L || is.na(max_evals))) {
+      stop(call. = FALSE, "`max_evals` must be a single number, or `NULL`.")
+    }
     dots <- list(...)
     obj_fn <- if (length(dots) > 0L) {
       function(x) do.call(fn, c(list(x), dots))
@@ -89,6 +96,12 @@ maximise <- function(fn, lower, upper, ...) {
 #' @noRd
 #' @keywords internal
 .optimise <- function(problem, method = "auto") {
+  if (!is.character(method) || length(method) != 1L) {
+    stop(call. = FALSE, paste(
+      "`method` must be a single string: an engine name,",
+      "\"auto\", or \"race\". See `list_optimisers()`."
+    ))
+  }
   if (identical(method, "race")) {
     return(.optimise_race(problem))
   }
@@ -127,6 +140,13 @@ maximise <- function(fn, lower, upper, ...) {
 #' @noRd
 #' @keywords internal
 .optimise_race <- function(problem) {
+  if (!S7::S7_inherits(problem@space, space_box)) {
+    stop(call. = FALSE, sprintf(
+      paste("Racing is for continuous box design spaces; this problem has a",
+            "`%s` space. Use method = \"auto\"."),
+      .space_class_name(problem@space)
+    ))
+  }
   installed <- .installed_engine_names()
   race_set <- .race_candidates(installed)
   if (length(race_set) < 2L) {

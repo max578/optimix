@@ -78,6 +78,13 @@ optimix_map <- function(fn, lower, upper, ..., n_starts = NULL,
                         tol = 0.05, max_evals = NULL) {
   .check_fn(fn)
   .check_bounds(lower, upper)
+  if (!is.null(n_starts) &&
+      (!is.numeric(n_starts) || length(n_starts) != 1L || is.na(n_starts))) {
+    stop(call. = FALSE, "`n_starts` must be a single number, or `NULL`.")
+  }
+  if (!is.numeric(tol) || length(tol) != 1L || is.na(tol) || tol <= 0) {
+    stop(call. = FALSE, "`tol` must be a single positive number.")
+  }
   d <- length(lower)
   dots <- list(...)
   obj_fn <- if (length(dots) > 0L) {

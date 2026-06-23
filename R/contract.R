@@ -77,6 +77,8 @@ space_permutation <- S7::new_class(
   validator = function(self) {
     if (length(self@n) != 1L) {
       "`n` must be a single integer"
+    } else if (is.na(self@n) || self@n %% 1 != 0) {
+      "`n` must be a whole number"
     } else if (self@n < 2) {
       "`n` must be at least 2"
     } else {
@@ -110,6 +112,10 @@ objective_spec <- S7::new_class(
       "`kind` must be a single string"
     } else if (!self@kind %in% c("deterministic", "noisy", "expensive")) {
       "`kind` must be \"deterministic\", \"noisy\", or \"expensive\""
+    } else if (length(self@noise_sd) != 1L) {
+      "`noise_sd` must be a single number or NA"
+    } else if (!is.na(self@noise_sd) && self@noise_sd < 0) {
+      "`noise_sd` must be non-negative"
     } else {
       NULL
     }

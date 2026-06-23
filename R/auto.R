@@ -96,12 +96,22 @@
 
   # Expensive objectives go to the surrogate engine (few true evaluations).
   if (identical(problem@objective@kind, "expensive")) {
-    pick <- .prefer_engine(
-      c("bayesopt", "gensa", "deoptimr", "deoptim"), installed
-    )
+    d <- .space_dim(problem@space)
+    cands <- c("bayesopt", "gensa", "deoptimr", "deoptim")
+    # The GP surrogate is for low dimension: drop bayesopt when the problem is
+    # outside its supported range so auto falls back rather than failing the fit
+    # check (auto must only ever pick an engine that fits the problem).
+    too_big <- !is.na(d) && d > .get_engine("bayesopt")@dim_max
+    if (too_big) cands <- setdiff(cands, "bayesopt")
+    pick <- .prefer_engine(cands, installed)
     if (is.na(pick)) pick <- "base_optim"
     why <- if (identical(pick, "bayesopt")) {
       "expensive objective: Bayesian optimisation (GP surrogate + EI)"
+    } else if (too_big) {
+      sprintf(
+        "expensive objective at d = %d, above the surrogate range: %s (global fallback)",
+        d, pick
+      )
     } else {
       sprintf("expensive objective: %s (no surrogate engine installed)", pick)
     }
