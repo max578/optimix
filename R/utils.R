@@ -64,6 +64,100 @@
   }
 }
 
+#' Reduce a box problem over its pinned dimensions
+#'
+#' A `space_box` admits a pinned coordinate (one with `lower == upper`), but the
+#' local quasi-Newton engines that drive `stats::optim(method = "L-BFGS-B")`
+#' fail with a non-finite finite-difference value when they step a pinned
+#' variable, and `GenSA` rejects a pinned coordinate outright. Reducing the
+#' problem to its free coordinates before dispatch makes a legal design space
+#' work for every engine at once, rather than patching each backend.
+#'
+#' The reduction is a pure restriction of the same objective: the reduced `fn`
+#' evaluates the original `fn` with the pinned coordinates held at their fixed
+#' value, so a non-degenerate problem (no pinned coordinate) is returned
+#' untouched (`NULL`) and the result is bit-identical to dispatching directly.
+#'
+#' @param problem An [optim_problem].
+#'
+#' @returns `NULL` when there is nothing to reduce -- the space is not a
+#'   `space_box`, or no coordinate is pinned. Otherwise a list with `free` (a
+#'   logical vector marking the free coordinates), `fixed_vals` (the full vector
+#'   of pinned values, valid on the pinned coordinates), and `reduced` (the
+#'   [optim_problem] over the free coordinates, or `NULL` when every coordinate
+#'   is pinned).
+#' @noRd
+#' @keywords internal
+.reduce_pinned <- function(problem) {
+  sp <- problem@space
+  if (!S7::S7_inherits(sp, space_box)) {
+    return(NULL)
+  }
+  pinned <- sp@lower == sp@upper
+  if (!any(pinned)) {
+    return(NULL)
+  }
+  free <- !pinned
+  fixed_vals <- sp@lower
+
+  # ---- Restrict the objective to the free coordinates ---------------------
+  # The reduced fn holds the pinned coordinates fixed and varies only the free
+  # ones, so it is the original objective restricted to the free subspace.
+  reduced <- if (any(free)) {
+    fn <- problem@fn
+    reduced_fn <- function(z) {
+      x <- fixed_vals
+      x[free] <- z
+      fn(x)
+    }
+    warm <- if (length(problem@warm_start) > 0L) {
+      problem@warm_start[free]
+    } else {
+      numeric(0)
+    }
+    optim_problem(
+      fn = reduced_fn,
+      space = space_box(lower = sp@lower[free], upper = sp@upper[free]),
+      objective = problem@objective,
+      maximise = problem@maximise,
+      max_evals = problem@max_evals,
+      warm_start = warm,
+      seed = problem@seed
+    )
+  } else {
+    NULL
+  }
+
+  list(free = free, fixed_vals = fixed_vals, reduced = reduced)
+}
+
+#' Solve a fully pinned box problem
+#'
+#' When every coordinate of a box is pinned (`lower == upper`) the design space
+#' is the single feasible point, so there is nothing to search: the optimum is
+#' that point and its objective value. Returns a converged result with one
+#' function evaluation, recorded against a `degenerate` engine.
+#'
+#' @param problem An [optim_problem] whose box has every coordinate pinned.
+#' @param fixed_vals The numeric vector of pinned coordinate values (the single
+#'   feasible point).
+#'
+#' @returns An `optimix_result` at the single feasible point.
+#' @noRd
+#' @keywords internal
+.solve_fully_pinned <- function(problem, fixed_vals) {
+  .new_result(
+    par = fixed_vals,
+    value = problem@fn(fixed_vals),
+    counts = c(`function` = 1L, gradient = NA_integer_),
+    convergence = 0L,
+    message = "all dimensions pinned; single feasible point",
+    engine = "degenerate",
+    why = "every bound is pinned (lower == upper)",
+    problem = problem
+  )
+}
+
 #' Build the function an engine minimises
 #'
 #' Wraps the user objective so that every engine minimises a single function:

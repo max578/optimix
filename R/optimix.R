@@ -114,6 +114,27 @@ maximise <- function(fn, lower, upper, ...) {
       "\"auto\", or \"race\". See `list_optimisers()`."
     ))
   }
+
+  # ---- Reduce any pinned (lower == upper) box dimensions ------------------
+  # A pinned coordinate is a legal design space the `space_box` validator
+  # admits, but the local engines step it outside its bound (a non-finite
+  # finite-difference value) and `GenSA` rejects it. Solving only the free
+  # coordinates -- a pure restriction of the same objective -- lets every
+  # engine handle a pinned dimension uniformly. A non-degenerate problem is
+  # returned untouched, so this is a no-op there.
+  reduced <- .reduce_pinned(problem)
+  if (!is.null(reduced)) {
+    if (is.null(reduced$reduced)) {
+      return(.solve_fully_pinned(problem, reduced$fixed_vals))
+    }
+    inner <- .optimise(reduced$reduced, method = method, goal = goal)
+    par <- reduced$fixed_vals
+    par[reduced$free] <- inner$par
+    inner$par <- par
+    inner$problem <- problem
+    return(inner)
+  }
+
   if (identical(method, "race")) {
     return(.optimise_race(problem))
   }
