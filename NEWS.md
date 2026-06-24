@@ -2,6 +2,17 @@
 
 ## New features
 
+* **Capability routing in `auto`.** `optimix(method = "auto")` now honours a
+  `goal` argument. `goal = "map"` routes to a map-emitting engine (proxymix's
+  `from_objective` mixture) for the full set of optima + a posterior over the
+  optimum; `goal = "optimum"` (the default) keeps the cost-efficient
+  single-best-point selection, with the mixture engine deliberately kept out of
+  that race. The route is data-driven off the registry's `emits_map` metadata and
+  falls back honestly -- the single best optimum, with a stated reason -- when no
+  map engine fits (proxymix absent, or `p > 10`). Grounded in the
+  proxymix-vs-optimix `from_objective` routing study (2026-06-24): the mixture
+  engine uniquely wins find-all-modes / uncertainty problems but loses
+  single-point jobs on cost, so it is auto-selected only for `goal = "map"`.
 * **Orchestra membership.** optimix now emits the federation's `orchestra_manifest`
   contract: `as_orchestra_manifest()` lifts an `optimix_result` into a `parameters`
   manifest -- the optimum rides in `params`, and the engine, convergence, the true

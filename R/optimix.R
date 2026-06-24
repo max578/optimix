@@ -25,6 +25,14 @@
 #'   `FALSE`.
 #' @param max_evals A soft budget of objective evaluations, or `NULL` to let the
 #'   engine use its own default.
+#' @param goal What to return: `"optimum"` (the default) for the single best
+#'   point, or `"map"` for the full set of optima with a posterior over the
+#'   optimum-set. `goal = "map"` steers `method = "auto"` to a map-emitting engine
+#'   (proxymix's `from_objective` mixture); it is ignored when a specific `method`
+#'   is named. Grounded in the 2026-06-24 from_objective routing study: the mixture
+#'   engine uniquely wins find-all-modes / uncertainty problems but loses
+#'   single-point jobs on cost, so it is auto-selected only for `goal = "map"`. For
+#'   the richer queryable map object see [optimix_map()].
 #'
 #' @returns An `optimix_result`: a list shaped like a [stats::optim()] result
 #'   (`par`, `value`, `counts`, `convergence`, `message`) with optimix extras
@@ -44,7 +52,9 @@
 #' optimix(prob, method = "base_optim")
 #' @export
 optimix <- function(fn, lower = NULL, upper = NULL, ..., method = "auto",
-                    maximise = FALSE, max_evals = NULL) {
+                    maximise = FALSE, max_evals = NULL,
+                    goal = c("optimum", "map")) {
+  goal <- match.arg(goal)
   if (S7::S7_inherits(fn, optim_problem)) {
     problem <- fn
   } else {
@@ -70,7 +80,7 @@ optimix <- function(fn, lower = NULL, upper = NULL, ..., method = "auto",
       max_evals = if (is.null(max_evals)) NA_real_ else as.numeric(max_evals)
     )
   }
-  .optimise(problem, method = method)
+  .optimise(problem, method = method, goal = goal)
 }
 
 #' @rdname optimix
@@ -92,10 +102,12 @@ maximise <- function(fn, lower, upper, ...) {
 #'
 #' @param problem An [optim_problem].
 #' @param method `"auto"`, `"race"`, or a registered engine name.
+#' @param goal `"optimum"` or `"map"`; steers `"auto"` only (ignored for a named
+#'   method or `"race"`).
 #' @returns An `optimix_result`.
 #' @noRd
 #' @keywords internal
-.optimise <- function(problem, method = "auto") {
+.optimise <- function(problem, method = "auto", goal = "optimum") {
   if (!is.character(method) || length(method) != 1L) {
     stop(call. = FALSE, paste(
       "`method` must be a single string: an engine name,",
@@ -106,7 +118,7 @@ maximise <- function(fn, lower, upper, ...) {
     return(.optimise_race(problem))
   }
   if (identical(method, "auto")) {
-    plan <- .auto_select(problem)
+    plan <- .auto_select(problem, goal = goal)
     if (isTRUE(plan$tier == 3L)) return(.run_race(problem, plan))
     name <- plan$engine
     why <- plan$why

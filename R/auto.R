@@ -16,6 +16,19 @@
 # Racing is feature-free -- it resolves these by actually trying the engines --
 # so it is the robust default. The ELA features are still computed for the
 # result's provenance and to seed the race from the best sampled point.
+#
+# Capability routing (the 2026-06-24 proxymix-vs-optimix from_objective study,
+# ORCHESTRA_dev/comparisons/from_objective/). The study mapped when each engine
+# wins against the analytic optima of standard benchmarks under a fair eval-cap:
+#   - combinatorial / permutation -> perm_sa (proxymix's mixture is continuous-only);
+#   - expensive -> bayesopt; noisy -> a noise-tolerant global;
+#   - a single best point on a smooth box -> race the classical engines; the
+#     proxymix mixture is DELIBERATELY EXCLUDED from this race -- it loses
+#     single-point jobs on both accuracy and cost (3x-1524x in the study);
+#   - the FULL set of optima / a posterior over the optimum (goal = "map") ->
+#     the map-emitting engine (proxymix's from_objective), where it UNIQUELY wins.
+# So this is intent + structural routing (space type, declared expense/noise,
+# declared goal) -- never the refuted landscape-feature heuristic.
 
 #' First installed engine from a preference order
 #'
@@ -77,21 +90,79 @@
   intersect(c("gensa", "cmaes_ipop", "nloptr_bobyqa"), installed)
 }
 
+#' Installed map-emitting engines that fit the problem dimension
+#'
+#' The `goal = "map"` route needs an engine that returns a mixture-valued
+#' solution map (a posterior over all optima). This is read data-driven from the
+#' registry's `emits_map` metadata -- so a future map-emitting engine routes here
+#' with no change -- filtered to those whose dimension range admits `d`. The
+#' proxymix mixture engine is preferred when several qualify.
+#'
+#' @param installed Installed engine names.
+#' @param d The problem dimension (or `NA`).
+#' @returns A character vector of map-emitting engine names, preferred first.
+#' @noRd
+#' @keywords internal
+.map_engines <- function(installed, d) {
+  cand <- Filter(function(n) {
+    e <- .get_engine(n)
+    isTRUE(e@emits_map) &&
+      (is.na(d) || (d >= e@dim_min && d <= e@dim_max))
+  }, installed)
+  c(intersect("proxymix_map", cand), setdiff(cand, "proxymix_map"))
+}
+
 #' Choose how to solve a problem
 #'
 #' @param problem An [optim_problem].
+#' @param goal `"optimum"` (the single best point) or `"map"` (the full set of
+#'   optima with a posterior over the optimum). `"map"` routes to a map-emitting
+#'   engine per the 2026-06-24 from_objective study.
 #' @returns A plan list carrying `tier` (1 or 3) and the tier-specific fields.
 #' @noRd
 #' @keywords internal
-.auto_select <- function(problem) {
+.auto_select <- function(problem, goal = "optimum") {
   installed <- .installed_engine_names()
 
-  # Combinatorial (permutation) spaces go to the permutation annealer.
+  # Combinatorial (permutation) spaces go to the permutation annealer. A
+  # continuous mixture map is not defined over permutations, so goal = "map"
+  # cannot be honoured here -- noted in the provenance rather than faked.
   if (S7::S7_inherits(problem@space, space_permutation)) {
     return(list(
       tier = 1L, engine = "perm_sa",
-      why = "permutation design space: simulated annealing over swaps"
+      why = paste0("permutation design space: simulated annealing over swaps",
+                   if (identical(goal, "map")) {
+                     " (goal = map not available: a continuous mixture map is undefined over permutations)"
+                   } else "")
     ))
+  }
+
+  # goal = "map": the user wants the FULL set of optima / a posterior over the
+  # optimum, not a single best point. Route to a map-emitting engine (proxymix's
+  # from_objective mixture), where the from_objective study shows it uniquely
+  # wins. It is reached ONLY here -- never in the single-point race, where it
+  # loses on cost.
+  if (identical(goal, "map")) {
+    d <- .space_dim(problem@space)
+    map_set <- .map_engines(installed, d)
+    if (length(map_set) > 0L) {
+      return(list(
+        tier = 1L, engine = map_set[1L],
+        why = sprintf(paste0("goal = map: %s returns the full set of optima + a ",
+                             "posterior over the optimum (from_objective study, 2026-06-24)"),
+                      map_set[1L])
+      ))
+    }
+    # No map-emitting engine fits (e.g. proxymix absent, or d above its range):
+    # the need is outside the installed engines, so fall back to the single best
+    # optimum and SAY SO -- never fabricate a map.
+    fb <- .auto_tier1(identical(problem@objective@kind, "noisy"), installed)
+    fb$why <- paste0(
+      "goal = map requested but no map-emitting engine fits this problem ",
+      "(install 'proxymix' for the posterior over all optima, p <= 10); ",
+      "returning the single best optimum via ", fb$engine
+    )
+    return(c(fb, list(tier = 1L)))
   }
 
   # Expensive objectives go to the surrogate engine (few true evaluations).
