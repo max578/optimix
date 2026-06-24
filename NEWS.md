@@ -2,6 +2,16 @@
 
 ## New features
 
+* **Orchestra membership.** optimix now emits the federation's `orchestra_manifest`
+  contract: `as_orchestra_manifest()` lifts an `optimix_result` into a `parameters`
+  manifest -- the optimum rides in `params`, and the engine, convergence, the true
+  evaluation count, and **whether an uncertainty quantification is available** ride
+  in the typed `summary`/`metadata`. A point engine sets
+  `metadata$uncertainty_available = FALSE`; the proxymix mixture engine carries the
+  queryable posterior over all optima in `metadata$solution_map`, so a downstream
+  consumer always knows point vs posterior (some optimisation needs are outside any
+  one engine -- the contract makes that explicit). `verify_manifest()` checks
+  payload integrity; `digest` is a new dependency for the payload hash.
 * Initial development scaffold. The package provides the unified problem
   contract (`optim_problem()`, `space_box()`, `objective_deterministic()`,
   `objective_noisy()`), the engine registry (`optim_engine()`,

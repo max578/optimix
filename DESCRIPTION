@@ -17,6 +17,7 @@ Language: en-AU
 Depends:
     R (>= 4.3)
 Imports:
+    digest,
     graphics,
     S7,
     stats,
