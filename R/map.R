@@ -6,6 +6,8 @@
 # available). When a new-enough proxymix is installed it instead returns a
 # calibrated Gaussian-mixture map over the optima -- the premium, queryable form.
 
+# Internal helpers -------------------------------------------------------------
+
 #' Build an optimix_map result
 #'
 #' @param modes A matrix of optima, one per row, best first.
@@ -46,6 +48,8 @@
   ))
   centroids
 }
+
+# The public mapper ------------------------------------------------------------
 
 #' Map the optima of a function
 #'

@@ -5,6 +5,8 @@
 # from .make_objective() and convert the best value back to the original
 # orientation with the stored sign.
 
+# The zero-dependency core -----------------------------------------------------
+
 #' Base R optimiser adapter (the zero-dependency core)
 #'
 #' Runs `stats::optim()` with the L-BFGS-B method, which respects box bounds and
@@ -39,6 +41,8 @@
     problem = problem
   )
 }
+
+# Global engines ---------------------------------------------------------------
 
 #' Generalised simulated annealing adapter (GenSA)
 #'
@@ -229,6 +233,8 @@
   )
 }
 
+# Local refiners ---------------------------------------------------------------
+
 #' Hooke-Jeeves pattern-search adapter (dfoptim)
 #'
 #' A bounded direct-search method: derivative-free, deterministic, and a strong
@@ -295,6 +301,8 @@
     problem = problem
   )
 }
+
+# Restart and surrogate engines ------------------------------------------------
 
 #' Restart-capable CMA-ES adapter (IPOP, built on cmaes)
 #'

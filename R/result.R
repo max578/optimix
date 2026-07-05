@@ -5,6 +5,8 @@
 # optim()-style code works unchanged, with optimix extras ($provenance,
 # $archive, $map, $diagnostics, $problem) added alongside.
 
+# The constructor --------------------------------------------------------------
+
 #' Build an optimix result object
 #'
 #' @param par The best parameter vector found, in the original design space.
@@ -40,6 +42,8 @@
     class = "optimix_result"
   )
 }
+
+# Display and coercion methods -------------------------------------------------
 
 #' @export
 print.optimix_result <- function(x, ...) {

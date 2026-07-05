@@ -30,6 +30,8 @@
 # So this is intent + structural routing (space type, declared expense/noise,
 # declared goal) -- never the refuted landscape-feature heuristic.
 
+# Engine-preference helpers --------------------------------------------------
+
 #' First installed engine from a preference order
 #'
 #' @param order A character vector of engine names, best first.
@@ -111,6 +113,8 @@
   }, installed)
   c(intersect("proxymix_map", cand), setdiff(cand, "proxymix_map"))
 }
+
+# The selector ----------------------------------------------------------------
 
 #' Choose how to solve a problem
 #'
@@ -208,6 +212,8 @@
     )
   )
 }
+
+# The tier-3 race --------------------------------------------------------------
 
 #' Run the tier-3 race: short trials, then commit to the leader
 #'

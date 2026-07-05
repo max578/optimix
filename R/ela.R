@@ -9,6 +9,8 @@
 # fits well is smooth and suits a cheap local optimiser, whereas a poor
 # quadratic fit signals ruggedness or multimodality and needs a global search.
 
+# Sampling design --------------------------------------------------------------
+
 #' Initial-design size for the ELA sample
 #'
 #' @param d The problem dimension.
@@ -50,6 +52,8 @@
   y <- apply(x_design, 1L, problem@fn)
   list(X = x_design, y = as.numeric(y), best = x_design[which.min(y), ])
 }
+
+# Meta-model features ----------------------------------------------------------
 
 #' Adjusted R-squared of a least-squares fit
 #'

@@ -4,6 +4,8 @@
 # runs the engine. Engines live in a package-level registry; the built-ins are
 # added at load time, and users add their own with register_optimiser().
 
+# The engine specification -----------------------------------------------------
+
 #' An optimiser engine specification
 #'
 #' Bundles the metadata that drives selection with the adapter that maps a
@@ -60,6 +62,8 @@ optim_engine <- S7::new_class(
     run = S7::class_function
   )
 )
+
+# The registry and its accessors -----------------------------------------------
 
 # The registry is a private environment keyed by engine name.
 .engine_registry <- new.env(parent = emptyenv())
@@ -151,6 +155,8 @@ list_optimisers <- function() {
   )
   out[order(out$name), , drop = FALSE]
 }
+
+# The built-in engines ---------------------------------------------------------
 
 #' Register the built-in engines
 #'
