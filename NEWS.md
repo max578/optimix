@@ -1,19 +1,5 @@
 # optimix 0.0.0.9000
 
-## Bug fixes
-
-* **Degenerate (pinned) box dimensions now solve.** A `space_box()` with a
-  pinned coordinate (`lower == upper`) is a legal design space the validator
-  admits, but the local engines stepped the pinned variable out of its bound
-  (`stats::optim()` L-BFGS-B failed with "non-finite finite-difference value";
-  `GenSA`, the `auto` route for a box, rejected it with "bounds are not
-  consistent"). `optimix()` now reduces a box to its free coordinates before
-  engine dispatch -- holding the pinned ones fixed, a pure restriction of the
-  same objective that is a no-op on non-degenerate problems -- and reconstructs
-  the full result vector, so every engine handles a pinned dimension uniformly;
-  an all-pinned box returns its single feasible point. Surfaced by the
-  validation study's two-sided conformance sweep.
-
 ## New features
 
 * **Capability routing in `auto`.** `optimix(method = "auto")` now honours a
@@ -56,6 +42,17 @@
 
 ## Bug fixes
 
+* **Degenerate (pinned) box dimensions now solve.** A `space_box()` with a
+  pinned coordinate (`lower == upper`) is a legal design space the validator
+  admits, but the local engines stepped the pinned variable out of its bound
+  (`stats::optim()` L-BFGS-B failed with "non-finite finite-difference value";
+  `GenSA`, the `auto` route for a box, rejected it with "bounds are not
+  consistent"). `optimix()` now reduces a box to its free coordinates before
+  engine dispatch -- holding the pinned ones fixed, a pure restriction of the
+  same objective that is a no-op on non-degenerate problems -- and reconstructs
+  the full result vector, so every engine handles a pinned dimension uniformly;
+  an all-pinned box returns its single feasible point. Surfaced by the
+  validation study's two-sided conformance sweep.
 * Facade and contract inputs surfaced by a corner-to-corner conformance audit are
   now validated up front rather than failing silently or opaquely downstream: a
   non-logical `maximise=` (e.g. `"yes"`) is rejected instead of being coerced to
