@@ -41,10 +41,11 @@
   dmat <- stats::dist(scaled)
   if (all(dmat == 0)) return(pts[1L, , drop = FALSE])
   groups <- stats::cutree(stats::hclust(dmat, method = "complete"), h = tol)
-  centroids <- t(vapply(
+  # Build the k x d centroid matrix shape-explicitly: t(vapply(...)) collapses
+  # to 1 x k when d == 1, garbling multimodal one-dimensional results.
+  centroids <- do.call(rbind, lapply(
     sort(unique(groups)),
-    function(g) colMeans(pts[groups == g, , drop = FALSE]),
-    numeric(ncol(pts))
+    function(g) colMeans(pts[groups == g, , drop = FALSE])
   ))
   centroids
 }

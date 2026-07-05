@@ -3,11 +3,15 @@
 # The result is a plain S3 list deliberately shaped like the return value of
 # stats::optim() -- $par, $value, $counts, $convergence, $message -- so existing
 # optim()-style code works unchanged, with optimix extras ($provenance,
-# $archive, $map, $diagnostics, $problem) added alongside.
+# $map, $diagnostics, $problem) added alongside.
 
 # The constructor --------------------------------------------------------------
 
 #' Build an optimix result object
+#'
+#' The result embeds the problem it solved, including the objective closure
+#' and its environment, so it is a session object rather than a durable one;
+#' [as_optim()] gives the minimal durable form for storage.
 #'
 #' @param par The best parameter vector found, in the original design space.
 #' @param value The objective value at `par`, in the original orientation.
@@ -17,14 +21,13 @@
 #' @param engine The name of the engine that produced the result.
 #' @param why A single string explaining why the engine was chosen.
 #' @param map An optional mixture-valued solution map, or `NULL`.
-#' @param archive An optional record of evaluated points, or `NULL`.
 #' @param diagnostics A list of engine-specific diagnostics.
 #' @param problem The [optim_problem] that was solved.
 #' @returns An object of class `optimix_result`.
 #' @noRd
 #' @keywords internal
 .new_result <- function(par, value, counts, convergence, message, engine,
-                        why = "user-specified", map = NULL, archive = NULL,
+                        why = "user-specified", map = NULL,
                         diagnostics = list(), problem = NULL) {
   structure(
     list(
@@ -34,7 +37,6 @@
       convergence = convergence,
       message = message,
       provenance = list(engine = engine, why = why),
-      archive = archive,
       map = map,
       diagnostics = diagnostics,
       problem = problem
@@ -102,9 +104,6 @@ coef.optimix_result <- function(object, ...) {
 
 #' @export
 as.data.frame.optimix_result <- function(x, ...) {
-  if (!is.null(x$archive)) {
-    return(as.data.frame(x$archive, ...))
-  }
   par <- x$par
   nm <- if (!is.null(names(par))) names(par) else paste0("x", seq_along(par))
   out <- as.data.frame(

@@ -31,25 +31,49 @@
 #' proxymix mixture-valued mapper adapter
 #'
 #' @param problem An [optim_problem].
-#' @returns An `optimix_result` whose `$map` holds the fitted mixture.
+#' @returns An `optimix_result` whose `$map` holds the fitted mixture and
+#'   whose `counts[["function"]]` records the true objective evaluations spent
+#'   by the fit. The problem's `seed` is honoured; `max_evals` cannot be (the
+#'   installed `from_objective()` exposes no evaluation-budget argument), and
+#'   a set budget is flagged in the result's `message` rather than silently
+#'   dropped.
 #' @noRd
 #' @keywords internal
 .run_proxymix <- function(problem) {
   sp <- problem@space
+  # Honour the problem's seed: from_objective() is importance-sampled, so an
+  # unseeded call is irreproducible. Wrap fn in a counter so the result's
+  # counts are honest rather than NA.
+  .maybe_seed(problem)
+  fn <- problem@fn
+  counter <- new.env(parent = emptyenv())
+  counter$n <- 0L
+  counted_fn <- function(x) {
+    counter$n <- counter$n + 1L
+    fn(x)
+  }
   fit <- proxymix::from_objective(
-    objective = problem@fn,
+    objective = counted_fn,
     lower = sp@lower,
     upper = sp@upper,
     minimise = !isTRUE(problem@maximise)
   )
   modes <- proxymix::gmm_modes(fit)
   best <- as.numeric(modes$modes[1L, ])
+  val <- counted_fn(best)
+  # from_objective() (checked against proxymix 0.15.1) has no budget-like
+  # argument to forward `max_evals` to, so say so instead of ignoring it.
+  msg <- if (!is.na(problem@max_evals)) {
+    "proxymix objective map (`max_evals` is not honoured by this engine)"
+  } else {
+    "proxymix objective map"
+  }
   .new_result(
     par = best,
-    value = problem@fn(best),
-    counts = c(`function` = NA_integer_, gradient = NA_integer_),
+    value = val,
+    counts = c(`function` = counter$n, gradient = NA_integer_),
     convergence = if (isTRUE(fit@converged)) 0L else 1L,
-    message = "proxymix objective map",
+    message = msg,
     engine = "proxymix_map",
     map = fit,
     diagnostics = list(n_modes = modes$n),

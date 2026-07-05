@@ -15,7 +15,8 @@ The engine name, invisibly.
 \description{
 Adds an \link{optim_engine} to the registry so it can be selected by name or by
 \code{method = "auto"}. Registering an engine with the same name as an existing
-one replaces it.
+one replaces it; replacing one of the built-in engines additionally emits a
+warning, since it changes what \code{method = "auto"} can dispatch to.
 }
 \examples{
 engine <- optim_engine(

@@ -32,12 +32,10 @@ test_that("a tampered payload is detected", {
 
 test_that("the proxymix mixture engine carries the posterior over the optima", {
   skip_if_not_installed("proxymix")
+  skip_if_not(optimix:::.proxymix_ready(), "installed proxymix lacks the mapper")
   # a multimodal objective; the proxymix engine maps it to a mixture over optima
   f <- function(x) sum(x^2) + 0.6 * sin(6 * x[1]) * sin(6 * x[2])
-  res <- tryCatch(
-    optimix(f, c(-2, -2), c(2, 2), method = "proxymix_map"),
-    error = function(e) e)
-  skip_if(inherits(res, "error"), "proxymix_map engine unavailable here")
+  res <- optimix(f, c(-2, -2), c(2, 2), method = "proxymix_map")
   m <- as_orchestra_manifest(res)
   expect_identical(m@inferential_target, "parameters")
   # the niche: a posterior over the optimum is available and flagged as such,

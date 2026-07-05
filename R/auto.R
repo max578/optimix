@@ -89,7 +89,7 @@
 #' @noRd
 #' @keywords internal
 .race_candidates <- function(installed) {
-  intersect(c("gensa", "cmaes_ipop", "nloptr_bobyqa"), installed)
+  intersect(c("gensa", "cmaes", "nloptr_bobyqa"), installed)
 }
 
 #' Installed map-emitting engines that fit the problem dimension
@@ -122,7 +122,9 @@
 #' @param goal `"optimum"` (the single best point) or `"map"` (the full set of
 #'   optima with a posterior over the optimum). `"map"` routes to a map-emitting
 #'   engine per the 2026-06-24 from_objective study.
-#' @returns A plan list carrying `tier` (1 or 3) and the tier-specific fields.
+#' @returns A plan list carrying `tier` (`1L` for a rule-based pick, `3L` for
+#'   a race) and the tier-specific fields. The race path stamps the same tier
+#'   into the result's `provenance$tier`.
 #' @noRd
 #' @keywords internal
 .auto_select <- function(problem, goal = "optimum") {
@@ -180,12 +182,16 @@
     if (too_big) cands <- setdiff(cands, "bayesopt")
     pick <- .prefer_engine(cands, installed)
     if (is.na(pick)) pick <- "base_optim"
+    # The fallback may be a global engine or, with nothing else installed,
+    # the local base optimiser -- describe whichever was picked truthfully.
+    fb_kind <- if (isTRUE(.get_engine(pick)@global)) "global" else "local"
     why <- if (identical(pick, "bayesopt")) {
       "expensive objective: Bayesian optimisation (GP surrogate + EI)"
     } else if (too_big) {
       sprintf(
-        "expensive objective at d = %d, above the surrogate range: %s (global fallback)",
-        d, pick
+        paste("expensive objective at d = %d, above the surrogate range:",
+              "%s (%s fallback)"),
+        d, pick, fb_kind
       )
     } else {
       sprintf("expensive objective: %s (no surrogate engine installed)", pick)
@@ -219,8 +225,15 @@
 #'
 #' Races each candidate on a small fraction of the budget from a shared warm
 #' start, then commits the remainder to the leader, warm-started from its own
-#' racing best. The evaluation budget is split honestly: the race trials and the
-#' ELA sample are both charged to the result's count.
+#' racing best. The evaluation budget is split honestly: the race trials and
+#' the ELA sample are both charged to the result's count, and the final run
+#' receives only what is left of the total after both.
+#'
+#' The leader is chosen on one short trial per engine, so on a noisy objective
+#' the ranking rests on a single noisy value and is unreliable. That is why
+#' `.auto_select()` never races a noisy problem (its tier-1 rule handles
+#' noise); an explicit `method = "race"` on a noisy objective accepts that
+#' risk.
 #'
 #' @param problem An [optim_problem].
 #' @param plan A plan from `.auto_select()` (or an explicit race plan).
@@ -231,29 +244,75 @@
   d <- .space_dim(problem@space)
   total <- .budget(problem, 1000L * max(1L, d))
   cands <- plan$race
-  per <- max(50L, floor(total * 0.15 / length(cands)))
+  k <- length(cands)
+
+  # ---- Split the budget across trials, sample, and final run --------------
+  # Each trial gets an equal share of 15% of the total. Under an explicit
+  # budget the per-trial floor is 5 evaluations, so a small `max_evals` is
+  # still honoured; the 50-evaluation floor applies only to the default
+  # (NA) budget, where the total is 1000 * d and the floor cannot overrun.
+  floor_per <- if (is.na(problem@max_evals)) 50L else 5L
+  per <- max(floor_per, as.integer(total * 0.15) %/% k)
+  min_needed <- k * floor_per + plan$n_ela + 1L
+  if (total < min_needed) {
+    stop(call. = FALSE, sprintf(
+      paste("Racing %d engines needs `max_evals` >= %d (%d trial evaluations",
+            "per engine, %d for the landscape sample, and 1 for the final",
+            "run); got %d. Raise `max_evals` or name one engine as `method`."),
+      k, min_needed, floor_per, plan$n_ela, total
+    ))
+  }
   warm <- plan$ela$best
 
+  # ---- Race the candidates on short trials --------------------------------
+  # Each trial is fault-isolated: one erroring engine must not abort the
+  # whole race while healthy candidates remain. A failed trial is dropped
+  # and recorded in the provenance.
   trials <- lapply(cands, function(e) {
     sub <- problem
     sub@max_evals <- per
     sub@warm_start <- warm
-    .get_engine(e)@run(sub)
+    tryCatch(.get_engine(e)@run(sub), error = function(cnd) cnd)
   })
+  failed <- vapply(trials, function(r) inherits(r, "error"), logical(1))
+  fail_why <- vapply(which(failed), function(i) {
+    sprintf("%s failed during the race: %s",
+            cands[i], conditionMessage(trials[[i]]))
+  }, character(1))
+  if (all(failed)) {
+    stop(call. = FALSE, sprintf(
+      "Every raced engine failed. %s.", paste(fail_why, collapse = "; ")
+    ))
+  }
+  cands <- cands[!failed]
+  trials <- trials[!failed]
+
+  # A single short trial per engine picks the leader; see the note above on
+  # why this ranking is only trusted for non-noisy objectives.
   vals <- vapply(trials, function(r) r$value, numeric(1))
   leader_i <- if (isTRUE(problem@maximise)) which.max(vals) else which.min(vals)
   leader <- cands[leader_i]
-  race_evals <- sum(vapply(trials, function(r) r$counts[["function"]], numeric(1)))
+  race_evals <- as.integer(
+    sum(vapply(trials, function(r) r$counts[["function"]], numeric(1)))
+  )
 
+  # ---- Commit the remainder to the leader ----------------------------------
+  # The final run gets the total minus what the race trials actually spent
+  # and minus the ELA sample, so race + sample + final stays within the
+  # caller's budget (up to at most one population overshoot in an engine).
   sub2 <- problem
-  sub2@max_evals <- max(per, total - race_evals)
+  sub2@max_evals <- max(1L, total - race_evals - plan$n_ela)
   sub2@warm_start <- trials[[leader_i]]$par
   final <- .get_engine(leader)@run(sub2)
   final$counts["function"] <-
     final$counts[["function"]] + race_evals + plan$n_ela
   final$provenance$engine <- leader
   final$provenance$tier <- 3L
-  final$provenance$why <- sprintf("%s; %s led the race", plan$why, leader)
+  why <- sprintf("%s; %s led the race", plan$why, leader)
+  if (any(failed)) {
+    why <- sprintf("%s; %s", why, paste(fail_why, collapse = "; "))
+  }
+  final$provenance$why <- why
   final$provenance$race <- stats::setNames(vals, cands)
   final$provenance$features <- plan$features
   final

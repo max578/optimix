@@ -16,6 +16,30 @@ test_that("the facade rejects a non-numeric max_evals", {
                "max_evals")
 })
 
+test_that("max_evals rejects non-whole, non-finite, and overflow values", {
+  f <- function(x) sum(x^2)
+  sp <- space_box(c(-1, -1), c(1, 1))
+  expect_error(
+    optim_problem(fn = f, space = sp, max_evals = 0.5), "whole number"
+  )
+  expect_error(
+    optim_problem(fn = f, space = sp, max_evals = Inf), "finite"
+  )
+  expect_error(
+    optim_problem(fn = f, space = sp, max_evals = 1e10), "2147483647"
+  )
+  expect_error(
+    optim_problem(fn = f, space = sp, max_evals = 0), "between 1"
+  )
+  expect_error(
+    optim_problem(fn = f, space = sp, max_evals = NaN), "NaN"
+  )
+  ok <- optim_problem(fn = f, space = sp, max_evals = 100)
+  expect_equal(ok@max_evals, 100)
+  none <- optim_problem(fn = f, space = sp, max_evals = NA_real_)
+  expect_true(is.na(none@max_evals))
+})
+
 test_that("method must be a single string", {
   f <- function(x) sum(x^2)
   expect_error(optimix(f, c(-1, -1), c(1, 1), method = 42), "method")

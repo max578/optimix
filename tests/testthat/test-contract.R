@@ -28,6 +28,26 @@ test_that("optim_problem validates warm_start length", {
   expect_equal(prob@objective@kind, "deterministic")
 })
 
+test_that("optim_problem rejects an out-of-bounds warm start on a box", {
+  sp <- space_box(c(-1, -1), c(1, 1))
+  expect_error(
+    optim_problem(fn = sphere, space = sp, warm_start = c(0, 2)),
+    "warm_start\\[2\\]"
+  )
+  expect_error(
+    optim_problem(fn = sphere, space = sp, warm_start = c(-1.5, 0)),
+    "warm_start\\[1\\]"
+  )
+  expect_error(
+    optim_problem(fn = sphere, space = sp, warm_start = c(NA_real_, 0)),
+    "warm_start"
+  )
+  prob <- optim_problem(fn = sphere, space = sp, warm_start = c(0.5, -0.5))
+  expect_equal(prob@warm_start, c(0.5, -0.5))
+  edge <- optim_problem(fn = sphere, space = sp, warm_start = c(-1, 1))
+  expect_equal(edge@warm_start, c(-1, 1))
+})
+
 test_that("objective specifications reject a negative noise sd", {
   expect_error(objective_noisy(sd = -1), "non-negative")
   expect_error(objective_spec(kind = "noisy", noise_sd = -0.5), "non-negative")

@@ -54,9 +54,11 @@ the richer queryable map object see \code{\link[=optimix_map]{optimix_map()}}.}
 \value{
 An \code{optimix_result}: a list shaped like a \code{\link[stats:optim]{stats::optim()}} result
 (\code{par}, \code{value}, \code{counts}, \code{convergence}, \code{message}) with optimix extras
-(\code{provenance}, \code{archive}, \code{map}, \code{diagnostics}, \code{problem}). It has
+(\code{provenance}, \code{map}, \code{diagnostics}, \code{problem}). It has
 \code{print()}, \code{summary()}, \code{plot()}, \code{coef()}, \code{as.data.frame()}, and
-\code{\link[=as_optim]{as_optim()}} methods.
+\code{\link[=as_optim]{as_optim()}} methods. Results embed the problem, including the objective
+closure and its environment, and are therefore session objects;
+\code{\link[=as_optim]{as_optim()}} gives the minimal durable form for storage.
 }
 \description{
 The single entry point. Pass a function with \code{lower} and \code{upper} bounds for

@@ -14,14 +14,35 @@
   if (length(self@maximise) != 1L) {
     msgs <- c(msgs, "`maximise` must be a single logical")
   }
-  if (length(self@max_evals) != 1L) {
+  me <- self@max_evals
+  if (length(me) != 1L) {
     msgs <- c(msgs, "`max_evals` must be a single number or NA")
-  } else if (!is.na(self@max_evals) && self@max_evals <= 0) {
-    msgs <- c(msgs, "`max_evals` must be positive")
+  } else if (is.nan(me)) {
+    msgs <- c(msgs, "`max_evals` must not be NaN")
+  } else if (!is.na(me)) {
+    if (!is.finite(me)) {
+      msgs <- c(msgs, "`max_evals` must be a finite number or NA")
+    } else if (me %% 1 != 0) {
+      msgs <- c(msgs, "`max_evals` must be a whole number")
+    } else if (me < 1 || me > .Machine$integer.max) {
+      msgs <- c(msgs, sprintf(
+        "`max_evals` must be between 1 and %d", .Machine$integer.max
+      ))
+    }
   }
   warm <- self@warm_start
   if (length(warm) > 0L && !is.na(d) && length(warm) != d) {
     msgs <- c(msgs, "`warm_start` must match the design-space dimension")
+  } else if (length(warm) > 0L && S7::S7_inherits(self@space, space_box)) {
+    lo <- self@space@lower
+    hi <- self@space@upper
+    bad <- which(!is.finite(warm) | warm < lo | warm > hi)
+    if (length(bad) > 0L) {
+      msgs <- c(msgs, sprintf(
+        "`warm_start[%d]` (%s) is outside its bounds [%g, %g]",
+        bad[1L], format(warm[bad[1L]]), lo[bad[1L]], hi[bad[1L]]
+      ))
+    }
   }
   if (length(self@seed) != 1L) {
     msgs <- c(msgs, "`seed` must be a single number or NA")
@@ -122,7 +143,8 @@
       maximise = problem@maximise,
       max_evals = problem@max_evals,
       warm_start = warm,
-      seed = problem@seed
+      seed = problem@seed,
+      delta_fn = problem@delta_fn
     )
   } else {
     NULL

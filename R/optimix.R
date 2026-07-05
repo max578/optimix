@@ -36,9 +36,11 @@
 #'
 #' @returns An `optimix_result`: a list shaped like a [stats::optim()] result
 #'   (`par`, `value`, `counts`, `convergence`, `message`) with optimix extras
-#'   (`provenance`, `archive`, `map`, `diagnostics`, `problem`). It has
+#'   (`provenance`, `map`, `diagnostics`, `problem`). It has
 #'   `print()`, `summary()`, `plot()`, `coef()`, `as.data.frame()`, and
-#'   [as_optim()] methods.
+#'   [as_optim()] methods. Results embed the problem, including the objective
+#'   closure and its environment, and are therefore session objects;
+#'   [as_optim()] gives the minimal durable form for storage.
 #' @examples
 #' # Easy path: minimise a quadratic on a box.
 #' optimix(function(x) sum(x^2), lower = c(-5, -5), upper = c(5, 5),
@@ -115,6 +117,31 @@ maximise <- function(fn, lower, upper, ...) {
     ))
   }
 
+  # ---- Preserve the caller's RNG state across a seeded solve --------------
+  # A problem seed makes the engines call set.seed(), which would otherwise
+  # leave the session RNG continuing the problem's stream after the call.
+  # Save the global .Random.seed (when one exists) and restore it on exit, so
+  # a seeded optimix() call is invisible to the caller's subsequent draws.
+  # The reduced-problem recursion below re-enters this function; the inner
+  # save/restore is a no-op nested inside the outer one, so composing with
+  # `add = TRUE` keeps both correct.
+  if (!is.na(problem@seed)) {
+    has_rng <- exists(".Random.seed", envir = globalenv(), inherits = FALSE)
+    old_rng <- if (has_rng) {
+      get(".Random.seed", envir = globalenv(), inherits = FALSE)
+    }
+    on.exit(
+      if (has_rng) {
+        assign(".Random.seed", old_rng, envir = globalenv())
+      } else if (
+        exists(".Random.seed", envir = globalenv(), inherits = FALSE)
+      ) {
+        rm(".Random.seed", envir = globalenv())
+      },
+      add = TRUE
+    )
+  }
+
   # ---- Reduce any pinned (lower == upper) box dimensions ------------------
   # A pinned coordinate is a legal design space the `space_box` validator
   # admits, but the local engines step it outside its bound (a non-finite
@@ -132,6 +159,20 @@ maximise <- function(fn, lower, upper, ...) {
     par[reduced$free] <- inner$par
     inner$par <- par
     inner$problem <- problem
+    # A mixture map produced on the reduced problem lives in the reduced
+    # coordinates, so lifting `$par` alone would leave it inconsistent with
+    # the full-dimensional result. Dropping it is the honest option.
+    if (!is.null(inner$map)) {
+      warning(call. = FALSE, paste(
+        "The mixture map is not available for a problem with pinned",
+        "dimensions; dropping `$map` from the result."
+      ))
+      inner$map <- NULL
+    }
+    inner$provenance$why <- sprintf(
+      "%s; solved over %d free of %d dimensions (pinned reduction)",
+      inner$provenance$why, sum(reduced$free), length(reduced$free)
+    )
     return(inner)
   }
 
@@ -143,9 +184,11 @@ maximise <- function(fn, lower, upper, ...) {
     if (isTRUE(plan$tier == 3L)) return(.run_race(problem, plan))
     name <- plan$engine
     why <- plan$why
+    tier <- plan$tier
   } else {
     name <- method
     why <- "user-specified"
+    tier <- NA_integer_
   }
   engine <- .get_engine(name)
   if (is.null(engine)) {
@@ -163,6 +206,7 @@ maximise <- function(fn, lower, upper, ...) {
   res <- engine@run(problem)
   res$provenance$engine <- name
   res$provenance$why <- why
+  res$provenance$tier <- tier
   res
 }
 
