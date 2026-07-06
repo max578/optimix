@@ -26,6 +26,38 @@ test_that("print and summary emit their headers", {
   expect_output(summary(res), "Optimisation result")
 })
 
+test_that("plot draws a convergence trace when the engine recorded one", {
+  skip_if_not_installed("DEoptim")
+  prob <- optim_problem(
+    fn = sphere, space = space_box(c(-5, -5), c(5, 5)),
+    seed = 3, max_evals = 200
+  )
+  res <- optimix(prob, method = "deoptim")
+  expect_false(is.null(res$diagnostics$bestvalit))
+  grDevices::pdf(NULL)
+  on.exit(grDevices::dev.off(), add = TRUE)
+  # The trace branch draws and emits nothing -- no message, no warning.
+  expect_silent(plot(res))
+})
+
+test_that("plot points at the mixture map when one is attached", {
+  # A hand-built result is enough: the map branch fires on `$map` alone, and
+  # takes priority over any convergence trace.
+  res <- .new_result(
+    par = c(0, 0), value = 0,
+    counts = c(`function` = 1L, gradient = NA_integer_),
+    convergence = 0L, message = "stub", engine = "map_stub",
+    map = list(stub = TRUE), problem = NULL
+  )
+  expect_message(plot(res), "mixture-valued map is attached")
+})
+
+test_that("plot says so when there is no trace and no map", {
+  # base_optim records no bestvalit trace, so the honest-fallback branch runs.
+  res <- optimix(sphere, c(-5, -5), c(5, 5), method = "base_optim")
+  expect_message(plot(res), "No convergence trace")
+})
+
 test_that("unknown and unavailable engines fail with guidance", {
   expect_error(
     optimix(sphere, c(-1, -1), c(1, 1), method = "nope"),

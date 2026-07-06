@@ -48,6 +48,25 @@ test_that("optim_problem rejects an out-of-bounds warm start on a box", {
   expect_equal(edge@warm_start, c(-1, 1))
 })
 
+test_that("a warm start is actually used as the starting point", {
+  # The optimum 1/3 is deliberately non-dyadic: a cold start could only end
+  # *near* it, so a par returned bit-identical to the warm start proves the
+  # engine started there and stopped immediately (the objective plus one
+  # central-difference gradient, 5 evaluations), rather than finding the
+  # optimum on its own.
+  fn <- function(x) sum((x - 1 / 3)^2)
+  warm <- c(1 / 3, 1 / 3)
+  prob <- optim_problem(
+    fn = fn, space = space_box(c(-4, -4), c(4, 4)), warm_start = warm
+  )
+  res <- optimix(prob, method = "base_optim")
+  expect_equal(res$par, warm, tolerance = 1e-6)
+  expect_identical(res$par, warm)
+  expect_identical(res$value, 0)
+  expect_identical(res$convergence, 0L)
+  expect_lte(res$counts[["function"]], 10L)
+})
+
 test_that("objective specifications reject a negative noise sd", {
   expect_error(objective_noisy(sd = -1), "non-negative")
   expect_error(objective_spec(kind = "noisy", noise_sd = -0.5), "non-negative")

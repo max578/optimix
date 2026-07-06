@@ -30,6 +30,56 @@ test_that("a tampered payload is detected", {
   expect_false(verify_manifest(m)$ok)
 })
 
+test_that("a non-converged result lifts to an abstaining manifest", {
+  # An engine that stops without converging must surface as an abstention in
+  # the typed summary -- point vs posterior stays explicit downstream -- with
+  # the engine's own message as the reason.
+  register_optimiser(optim_engine(
+    name = "test_nonconverged", pkg = "base", accepts = "space_box",
+    available = function() TRUE,
+    run = function(problem) {
+      .new_result(
+        par = c(0, 0), value = 1,
+        counts = c(`function` = 3L, gradient = NA_integer_),
+        convergence = 1L, message = "stopped before converging (unit stub)",
+        engine = "test_nonconverged", problem = problem
+      )
+    }
+  ))
+  on.exit(rm(list = "test_nonconverged", envir = .engine_registry), add = TRUE)
+  res <- optimix(sphere, c(-1, -1), c(1, 1), method = "test_nonconverged")
+  m <- as_orchestra_manifest(res)
+  expect_true(m@summary$abstained)
+  expect_identical(
+    m@summary$abstain_reason, "stopped before converging (unit stub)"
+  )
+  expect_identical(m@summary$metrics$convergence, 1L)
+  expect_false(m@metadata$converged)
+  # an abstaining manifest still hashes and verifies: abstention is a verdict,
+  # not a corruption
+  expect_true(verify_manifest(m)$ok)
+})
+
+test_that("verify_manifest rejects a non-manifest input cleanly", {
+  for (bad in list(42, list(ok = TRUE), "manifest")) {
+    v <- verify_manifest(bad)
+    expect_false(v$ok)
+    expect_identical(v$message, "not an orchestra_manifest")
+  }
+})
+
+test_that("run_id is content-derived and an explicit one passes through", {
+  res <- optimix(sphere, c(-2, -2), c(2, 2), method = "base_optim")
+  first <- as_orchestra_manifest(res)
+  second <- as_orchestra_manifest(res)
+  # the same deterministic optimum hashes to the same identifier, so re-lifts
+  # of one result are recognisably the same run downstream
+  expect_identical(first@run_id, second@run_id)
+  expect_match(first@run_id, "^optimix-[0-9a-f]{12}$")
+  explicit <- as_orchestra_manifest(res, run_id = "my-run-001")
+  expect_identical(explicit@run_id, "my-run-001")
+})
+
 test_that("the proxymix mixture engine carries the posterior over the optima", {
   skip_if_not_installed("proxymix")
   skip_if_not(optimix:::.proxymix_ready(), "installed proxymix lacks the mapper")

@@ -1,7 +1,13 @@
 test_that("auto races on a smooth quadratic and solves it (tier 3)", {
   skip_if_not_installed("nloptr")
   skip_if_not_installed("GenSA")
-  res <- optimix(sphere, lower = rep(-5, 5), upper = rep(5, 5))
+  # The session seed pins the ELA sample (drawn before any engine runs); the
+  # problem seed pins each seeded race trial and the final run.
+  set.seed(1)
+  prob <- optim_problem(
+    fn = sphere, space = space_box(rep(-5, 5), rep(5, 5)), seed = 1
+  )
+  res <- optimix(prob, method = "auto")
   expect_equal(res$provenance$tier, 3L)
   expect_lt(res$value, 1e-4)
 })
@@ -27,9 +33,35 @@ test_that("auto routes an expensive objective to the surrogate engine", {
 test_that("the race method returns a tier-3 result", {
   skip_if_not_installed("GenSA")
   skip_if_not_installed("DEoptimR")
-  res <- optimix(sphere, lower = c(-5, -5), upper = c(5, 5), method = "race")
+  # The explicit race draws no ELA sample, so the problem seed alone makes
+  # every trial and the final run deterministic.
+  prob <- optim_problem(
+    fn = sphere, space = space_box(c(-5, -5), c(5, 5)), seed = 13
+  )
+  res <- optimix(prob, method = "race")
   expect_equal(res$provenance$tier, 3L)
   expect_lt(res$value, 1e-1)
+})
+
+test_that("a noisy objective routes to the noise-tolerant global and solves (tier 1)", {
+  skip_if_not_installed("GenSA")
+  # The end-to-end noisy contract: noise is drawn inside the objective (never
+  # seeded inside fn), the problem declares it via objective_noisy(), and the
+  # problem seed makes the whole solve reproducible.
+  fn <- function(x) sum(x^2) + stats::rnorm(1, sd = 0.05)
+  prob <- optim_problem(
+    fn = fn, space = space_box(c(-5, -5), c(5, 5)),
+    objective = objective_noisy(sd = 0.05), seed = 1
+  )
+  res <- optimix(prob, method = "auto")
+  # The tier-1 noisy rule prefers gensa (first noise-tolerant global in the
+  # preference order) whenever GenSA is installed, and never races.
+  expect_identical(res$provenance$engine, "gensa")
+  expect_match(res$provenance$why, "noisy")
+  expect_identical(res$provenance$tier, 1L)
+  # The best observed value is the true optimum plus observation noise of
+  # sd 0.05, so it sits far below 0.5 under the fixed seed.
+  expect_lt(res$value, 0.5)
 })
 
 test_that("auto falls back from the surrogate when the problem is too high-dimensional", {
