@@ -25,16 +25,16 @@ An \code{orchestra_manifest} S7 object.
 \description{
 The federation's emit / adapt generic. The \code{optimix_result} method turns an
 optimisation result into the shared \code{orchestra_manifest} contract:
-\code{inferential_target = "parameters"}, the optimum carried as a one-row \code{params}
-table (the best parameter vector and its objective value), and the engine
-provenance -- which optimiser ran, why it was chosen, convergence, the true
-evaluation count, and \strong{whether an uncertainty quantification is available} --
-in the typed \code{summary} and \code{metadata}. When the proxymix mixture engine ran,
-\code{metadata$solution_map} carries the queryable mixture over all optima, so a
-downstream consumer that needs a posterior over the optimum (not just a point)
-can read it; a point engine sets \code{metadata$uncertainty_available = FALSE}. The
-payload is integrity-hashed so a consumer can verify it with
-\code{\link[=verify_manifest]{verify_manifest()}}.
+\code{inferential_target = "parameters"}, the optimum carried as a one-row
+\code{params} table (the best parameter vector and its objective value), and the
+engine provenance -- which optimiser ran, why it was chosen, convergence,
+the true evaluation count, and whether an uncertainty quantification is
+available -- in the typed \code{summary} and \code{metadata}. When the proxymix
+mixture engine ran, \code{metadata$solution_map} carries the queryable mixture
+over all optima, so a downstream consumer that needs a posterior over the
+optimum (not just a point) can read it; a point engine sets
+\code{metadata$uncertainty_available = FALSE}. The payload is integrity-hashed
+so a consumer can verify it with \code{\link[=verify_manifest]{verify_manifest()}}.
 }
 \examples{
 res <- optimix(function(x) sum((x - 0.5)^2), c(-2, -2), c(2, 2),
@@ -44,4 +44,9 @@ as_orchestra_manifest(res)
 }
 \seealso{
 \code{\link[=verify_manifest]{verify_manifest()}}, \code{\link[=optimix]{optimix()}}
+
+Other orchestra manifest: 
+\code{\link{orchestra_manifest}()},
+\code{\link{verify_manifest}()}
 }
+\concept{orchestra manifest}

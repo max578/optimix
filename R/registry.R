@@ -44,6 +44,7 @@
 #'   available = function() TRUE,
 #'   run = function(problem) NULL
 #' )
+#' @family engines and registry
 #' @export
 optim_engine <- S7::new_class(
   "optim_engine",
@@ -105,6 +106,7 @@ optim_engine <- S7::new_class(
 #' )
 #' register_optimiser(engine)
 #' "my_solver" %in% list_optimisers()$name
+#' @family engines and registry
 #' @export
 register_optimiser <- function(engine) {
   if (!S7::S7_inherits(engine, optim_engine)) {
@@ -156,6 +158,7 @@ register_optimiser <- function(engine) {
 #'   `installed`, `global`, `noise_tolerant`, and `emits_map`.
 #' @examples
 #' list_optimisers()
+#' @family engines and registry
 #' @export
 list_optimisers <- function() {
   nm <- ls(.engine_registry, all.names = TRUE)

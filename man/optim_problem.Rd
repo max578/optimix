@@ -47,3 +47,10 @@ optim_problem(
   space = space_box(lower = c(-5, -5), upper = c(5, 5))
 )
 }
+\seealso{
+Other design spaces: 
+\code{\link{opt_space}()},
+\code{\link{space_box}()},
+\code{\link{space_permutation}()}
+}
+\concept{design spaces}

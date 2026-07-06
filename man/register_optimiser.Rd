@@ -28,3 +28,9 @@ engine <- optim_engine(
 register_optimiser(engine)
 "my_solver" \%in\% list_optimisers()$name
 }
+\seealso{
+Other engines and registry: 
+\code{\link{list_optimisers}()},
+\code{\link{optim_engine}()}
+}
+\concept{engines and registry}

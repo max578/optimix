@@ -31,6 +31,7 @@
   total <- .budget(problem, 100L * n)
   .maybe_seed(problem)
 
+  # Scoring closures -----------------------------------------------------------
   # A full re-evaluation in minimisation orientation, outside the move budget
   # (the initial score, the delta check, re-syncs, and the final value).
   rescore <- function(perm) {
@@ -55,6 +56,7 @@
     }
   }
 
+  # The starting permutation and the delta-contract check ---------------------
   cur <- if (length(problem@warm_start) == n) {
     ws <- as.integer(problem@warm_start)
     if (!identical(sort(ws), seq_len(n))) {
@@ -93,7 +95,9 @@
     }
   }
 
-  # Temperature ladder calibrated from the spread of some candidate swap deltas.
+  # The anneal -----------------------------------------------------------------
+  # The temperature ladder is calibrated from the spread of some candidate
+  # swap deltas.
   n_probe <- min(30L, max(1L, total %/% 10L))
   probe <- vapply(seq_len(n_probe), function(ignore) {
     ij <- sample.int(n, 2L)

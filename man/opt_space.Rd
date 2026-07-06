@@ -11,6 +11,14 @@ Not constructed directly; see \code{\link[=space_box]{space_box()}}.
 }
 \description{
 Abstract parent for the design spaces an \code{\link[=optim_problem]{optim_problem()}} can search. Each
-concrete space declares the geometry an optimiser must respect. The only
-concrete space in this release is \code{\link[=space_box]{space_box()}}.
+concrete space declares the geometry an optimiser must respect. The
+concrete spaces in this release are \code{\link[=space_box]{space_box()}} and
+\code{\link[=space_permutation]{space_permutation()}}.
 }
+\seealso{
+Other design spaces: 
+\code{\link{optim_problem}()},
+\code{\link{space_box}()},
+\code{\link{space_permutation}()}
+}
+\concept{design spaces}

@@ -27,12 +27,10 @@
 #'   engine use its own default.
 #' @param goal What to return: `"optimum"` (the default) for the single best
 #'   point, or `"map"` for the full set of optima with a posterior over the
-#'   optimum-set. `goal = "map"` steers `method = "auto"` to a map-emitting engine
-#'   (proxymix's `from_objective` mixture); it is ignored when a specific `method`
-#'   is named. Grounded in the 2026-06-24 from_objective routing study: the mixture
-#'   engine uniquely wins find-all-modes / uncertainty problems but loses
-#'   single-point jobs on cost, so it is auto-selected only for `goal = "map"`. For
-#'   the richer queryable map object see [optimix_map()].
+#'   optimum-set. `goal = "map"` steers `method = "auto"` to a map-emitting
+#'   engine (proxymix's `from_objective` mixture); it is ignored when a
+#'   specific `method` is named. For the richer queryable map object see
+#'   [optimix_map()].
 #'
 #' @returns An `optimix_result`: a list shaped like a [stats::optim()] result
 #'   (`par`, `value`, `counts`, `convergence`, `message`) with optimix extras
@@ -52,6 +50,7 @@
 #'   space = space_box(lower = c(-5, -5), upper = c(5, 5))
 #' )
 #' optimix(prob, method = "base_optim")
+#' @family results
 #' @export
 optimix <- function(fn, lower = NULL, upper = NULL, ..., method = "auto",
                     maximise = FALSE, max_evals = NULL,
@@ -62,13 +61,8 @@ optimix <- function(fn, lower = NULL, upper = NULL, ..., method = "auto",
   } else {
     .check_fn(fn)
     .check_bounds(lower, upper)
-    if (!is.logical(maximise) || length(maximise) != 1L || is.na(maximise)) {
-      stop(call. = FALSE, "`maximise` must be a single `TRUE` or `FALSE`.")
-    }
-    if (!is.null(max_evals) &&
-        (!is.numeric(max_evals) || length(max_evals) != 1L || is.na(max_evals))) {
-      stop(call. = FALSE, "`max_evals` must be a single number, or `NULL`.")
-    }
+    .check_scalar_logical(maximise, "maximise")
+    .check_scalar_number(max_evals, "max_evals", null_ok = TRUE)
     dots <- list(...)
     obj_fn <- if (length(dots) > 0L) {
       function(x) do.call(fn, c(list(x), dots))
@@ -110,12 +104,10 @@ maximise <- function(fn, lower, upper, ...) {
 #' @noRd
 #' @keywords internal
 .optimise <- function(problem, method = "auto", goal = "optimum") {
-  if (!is.character(method) || length(method) != 1L) {
-    stop(call. = FALSE, paste(
-      "`method` must be a single string: an engine name,",
-      "\"auto\", or \"race\". See `list_optimisers()`."
-    ))
-  }
+  .check_scalar_string(method, "method", msg = paste(
+    "`method` must be a single string: an engine name,",
+    "\"auto\", or \"race\". See `list_optimisers()`."
+  ))
 
   # ---- Preserve the caller's RNG state across a seeded solve --------------
   # A problem seed makes the engines call set.seed(), which would otherwise
@@ -198,7 +190,8 @@ maximise <- function(fn, lower, upper, ...) {
   }
   if (!isTRUE(engine@available())) {
     stop(call. = FALSE, sprintf(
-      "Optimiser `%s` needs package `%s`. Install it, or use method = \"auto\".",
+      paste("Optimiser `%s` needs package `%s`. Install it, or use",
+            "method = \"auto\"."),
       name, engine@pkg
     ))
   }

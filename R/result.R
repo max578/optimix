@@ -149,6 +149,7 @@ plot.optimix_result <- function(x, ...) {
 #' res <- optimix(function(x) sum(x^2), c(-5, -5), c(5, 5),
 #'                method = "base_optim")
 #' as_optim(res)
+#' @family results
 #' @export
 as_optim <- function(x, ...) {
   UseMethod("as_optim")

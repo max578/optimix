@@ -7,13 +7,34 @@
 An S7 object of class \code{orchestra_manifest}.
 }
 \description{
-A versioned, hashed, provenance-complete S7 result object, property-compatible
-with the federation's reference \code{orchestra_manifest}. An \code{optimix_result} is
-adapted into one through \code{\link[=as_orchestra_manifest]{as_orchestra_manifest()}}: the optimum rides in
-\code{params} (\code{inferential_target = "parameters"}), the engine, convergence and
-uncertainty-availability ride in \code{metadata} and the typed \code{summary}, and the
-payload is integrity-hashed so a tampered optimum is detected downstream.
+A versioned, hashed, provenance-complete S7 result object,
+property-compatible with the federation's reference \code{orchestra_manifest}.
+An \code{optimix_result} is adapted into one through \code{\link[=as_orchestra_manifest]{as_orchestra_manifest()}}:
+the optimum rides in \code{params} (\code{inferential_target = "parameters"}), the
+engine, convergence and uncertainty-availability ride in \code{metadata} and the
+typed \code{summary}, and the payload is integrity-hashed so a tampered optimum
+is detected downstream.
+}
+\examples{
+# A minimal hand-built manifest; as_orchestra_manifest() fills these
+# slots (and a real payload hash) from an optimix result.
+m <- orchestra_manifest(
+  emitter_package = "optimix",
+  emitter_version = "0.0.0.9000",
+  inferential_target = "parameters",
+  run_id = "example-0001",
+  method = "optimix:base_optim",
+  params = data.frame(par1 = 0.5, value = 0.25),
+  timestamp = Sys.time(),
+  data_hash = "sha256:unhashed-example"
+)
+m@run_id
 }
 \seealso{
 \code{\link[=as_orchestra_manifest]{as_orchestra_manifest()}}, \code{\link[=verify_manifest]{verify_manifest()}}
+
+Other orchestra manifest: 
+\code{\link{as_orchestra_manifest}()},
+\code{\link{verify_manifest}()}
 }
+\concept{orchestra manifest}

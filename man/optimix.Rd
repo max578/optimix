@@ -44,12 +44,10 @@ engine use its own default.}
 
 \item{goal}{What to return: \code{"optimum"} (the default) for the single best
 point, or \code{"map"} for the full set of optima with a posterior over the
-optimum-set. \code{goal = "map"} steers \code{method = "auto"} to a map-emitting engine
-(proxymix's \code{from_objective} mixture); it is ignored when a specific \code{method}
-is named. Grounded in the 2026-06-24 from_objective routing study: the mixture
-engine uniquely wins find-all-modes / uncertainty problems but loses
-single-point jobs on cost, so it is auto-selected only for \code{goal = "map"}. For
-the richer queryable map object see \code{\link[=optimix_map]{optimix_map()}}.}
+optimum-set. \code{goal = "map"} steers \code{method = "auto"} to a map-emitting
+engine (proxymix's \code{from_objective} mixture); it is ignored when a
+specific \code{method} is named. For the richer queryable map object see
+\code{\link[=optimix_map]{optimix_map()}}.}
 }
 \value{
 An \code{optimix_result}: a list shaped like a \code{\link[stats:optim]{stats::optim()}} result
@@ -78,3 +76,9 @@ prob <- optim_problem(
 )
 optimix(prob, method = "base_optim")
 }
+\seealso{
+Other results: 
+\code{\link{as_optim}()},
+\code{\link{optimix_map}()}
+}
+\concept{results}

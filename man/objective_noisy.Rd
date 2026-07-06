@@ -20,3 +20,10 @@ optimiser.
 \examples{
 objective_noisy(sd = 0.1)
 }
+\seealso{
+Other objective declarations: 
+\code{\link{objective_deterministic}()},
+\code{\link{objective_expensive}()},
+\code{\link{objective_spec}()}
+}
+\concept{objective declarations}

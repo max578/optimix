@@ -1,13 +1,13 @@
 # ela.R -- Native exploratory-landscape-analysis features.
 #
-# A small, dependency-free ELA feature set computed from an initial design and
-# used by the tier-2 selector. flacco -- the usual ELA package -- is off CRAN, so
-# these are computed natively from base R: a Latin-hypercube design, two
-# meta-model fits (a linear and a separable-quadratic adjusted R-squared), and
-# the shape of the objective distribution. The meta-model R-squared is the
-# primary smoothness signal (Mersmann et al. 2011): a landscape that a quadratic
-# fits well is smooth and suits a cheap local optimiser, whereas a poor
-# quadratic fit signals ruggedness or multimodality and needs a global search.
+# A small, dependency-free ELA feature set computed from an initial design.
+# flacco -- the usual ELA package -- is off CRAN, so these are computed
+# natively from base R: a Latin-hypercube design, two meta-model fits (a
+# linear and a separable-quadratic adjusted R-squared), and the shape of the
+# objective distribution. The meta-model R-squared is the primary smoothness
+# signal (Mersmann et al. 2011): a landscape that a quadratic fits well is
+# smooth and suits a cheap local optimiser, whereas a poor quadratic fit
+# signals ruggedness or multimodality and needs a global search.
 
 # Sampling design --------------------------------------------------------------
 

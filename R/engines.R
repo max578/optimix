@@ -438,9 +438,10 @@
     c("nloptr_directl", "gensa", "base_optim"), .installed_engine_names()
   )
 
+  # The surrogate fit ---------------------------------------------------------
   # The GP-fit and surrogate-prediction warnings (hyper-parameter optimisation
-  # notes, near-singular designs) are expected per BO step and do not change the
-  # decision, which always keeps the best true evaluation -- so they are
+  # notes, near-singular designs) are expected per BO step and do not change
+  # the decision, which always keeps the best true evaluation -- so they are
   # captured here rather than raised as bare warnings.
   fit_gp <- function(x_design, y) {
     suppressWarnings(tryCatch(
@@ -453,6 +454,7 @@
     ))
   }
 
+  # The initial design and the EGO loop ---------------------------------------
   x_design <- .ela_lhs(n_init, sp@lower, sp@upper)
   y <- apply(x_design, 1L, obj$g)
   gp_failures <- 0L
@@ -504,6 +506,7 @@
     y <- c(y, obj$g(x_new))
   }
 
+  # Return the best true evaluation -------------------------------------------
   best_i <- which.min(y)
   .new_result(
     par = as.numeric(x_design[best_i, ]),

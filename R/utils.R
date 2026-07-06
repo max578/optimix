@@ -272,6 +272,74 @@
   invisible(TRUE)
 }
 
+#' Check a scalar logical argument
+#'
+#' @param x The argument value to validate: it must be a single `TRUE` or
+#'   `FALSE`, so a vector, an `NA`, or a non-logical value is rejected.
+#' @param arg A single string naming the argument, used in the error message.
+#' @returns `TRUE`, invisibly, or stops with a caller-facing error.
+#' @noRd
+#' @keywords internal
+.check_scalar_logical <- function(x, arg) {
+  if (!is.logical(x) || length(x) != 1L || is.na(x)) {
+    stop(call. = FALSE, sprintf(
+      "`%s` must be a single `TRUE` or `FALSE`.", arg
+    ))
+  }
+  invisible(TRUE)
+}
+
+#' Check a scalar numeric argument
+#'
+#' @param x The argument value to validate: it must be a single non-`NA`
+#'   number, so a vector, an `NA`, or a non-numeric value is rejected.
+#' @param arg A single string naming the argument, used in the error message.
+#' @param null_ok A single logical; when `TRUE` a `NULL` value passes, and the
+#'   error message offers `NULL` as the accepted alternative.
+#' @param positive A single logical; when `TRUE` the value must additionally
+#'   be strictly greater than zero.
+#' @returns `TRUE`, invisibly, or stops with a caller-facing error.
+#' @noRd
+#' @keywords internal
+.check_scalar_number <- function(x, arg, null_ok = FALSE, positive = FALSE) {
+  if (null_ok && is.null(x)) {
+    return(invisible(TRUE))
+  }
+  ok <- is.numeric(x) && length(x) == 1L && !is.na(x) && (!positive || x > 0)
+  if (!ok) {
+    msg <- if (positive) {
+      sprintf("`%s` must be a single positive number.", arg)
+    } else if (null_ok) {
+      sprintf("`%s` must be a single number, or `NULL`.", arg)
+    } else {
+      sprintf("`%s` must be a single number.", arg)
+    }
+    stop(call. = FALSE, msg)
+  }
+  invisible(TRUE)
+}
+
+#' Check a scalar string argument
+#'
+#' @param x The argument value to validate: it must be a single character
+#'   value, so a vector or a non-character value is rejected.
+#' @param arg A single string naming the argument, used in the default error
+#'   message.
+#' @param msg An optional complete error message that overrides the default,
+#'   for a call site whose message carries extra guidance.
+#' @returns `TRUE`, invisibly, or stops with a caller-facing error.
+#' @noRd
+#' @keywords internal
+.check_scalar_string <- function(x, arg, msg = NULL) {
+  if (!is.character(x) || length(x) != 1L) {
+    if (is.null(msg)) {
+      msg <- sprintf("`%s` must be a single string.", arg)
+    }
+    stop(call. = FALSE, msg)
+  }
+  invisible(TRUE)
+}
+
 #' Check an engine can handle a problem
 #'
 #' @param engine An [optim_engine].
@@ -295,4 +363,23 @@
     ))
   }
   invisible(TRUE)
+}
+
+#' Which rows of a matrix lie inside a box
+#'
+#' A feasibility filter for mode matrices coming back from an external
+#' mapper: a fitted mixture's component means can drift outside the design
+#' box, and the contract requires every reported optimum to be feasible.
+#'
+#' @param m A numeric matrix, one candidate point per row.
+#' @param lower,upper Numeric bound vectors of length `ncol(m)`.
+#' @returns A logical vector with one entry per row of `m`.
+#' @noRd
+#' @keywords internal
+.feasible_rows <- function(m, lower, upper) {
+  vapply(
+    seq_len(nrow(m)),
+    function(i) all(m[i, ] >= lower & m[i, ] <= upper),
+    logical(1L)
+  )
 }

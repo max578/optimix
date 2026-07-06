@@ -21,3 +21,10 @@ permutation (an integer vector).
 \examples{
 space_permutation(5)
 }
+\seealso{
+Other design spaces: 
+\code{\link{opt_space}()},
+\code{\link{optim_problem}()},
+\code{\link{space_box}()}
+}
+\concept{design spaces}

@@ -70,3 +70,9 @@ optim_engine(
   run = function(problem) NULL
 )
 }
+\seealso{
+Other engines and registry: 
+\code{\link{list_optimisers}()},
+\code{\link{register_optimiser}()}
+}
+\concept{engines and registry}
