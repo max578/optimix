@@ -93,3 +93,20 @@ test_that("optimix_map prints", {
   res <- optimix_map(sphere, lower = c(-2, -2), upper = c(2, 2))
   expect_output(print(res), "optimix_map")
 })
+
+test_that("the proxymix map never reports a mode outside the bounds", {
+  skip_if_not_installed("proxymix")
+  skip_if_not(optimix:::.proxymix_ready(), "installed proxymix lacks the mapper")
+  # A concave objective drives the mixture's component means outward, which
+  # produced out-of-box "optima" before the feasibility filter (2026-07-06):
+  # the in-box minima of -x1^2 - x2^2 on [-2, 2]^2 are the four corners.
+  # proxymix's own low-ESS warnings and the documented native fallback
+  # warning are both acceptable here; the invariant under test is that no
+  # reported mode is infeasible, whichever path answered.
+  set.seed(31)
+  res <- suppressWarnings(optimix_map(
+    function(x) -x[1]^2 - x[2]^2, lower = c(-2, -2), upper = c(2, 2)
+  ))
+  expect_true(all(res$modes >= -2 & res$modes <= 2))
+  expect_lte(res$values[1L], 0)
+})

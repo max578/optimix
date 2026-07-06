@@ -59,3 +59,28 @@ test_that("proxymix_map flags a budget it cannot forward", {
   res <- optimix(prob, method = "proxymix_map")
   expect_match(res$message, "max_evals", fixed = TRUE)
 })
+
+test_that("the proxymix engine's par is always feasible", {
+  skip_if_not_installed("proxymix")
+  skip_if_not(optimix:::.proxymix_ready(), "installed proxymix lacks the mapper")
+  # Same concave driver as the map-side regression: before the feasibility
+  # filter the engine could return an out-of-box mixture mean as `par`.
+  prob <- optim_problem(
+    fn = function(x) -x[1]^2 - x[2]^2,
+    space = space_box(c(-2, -2), c(2, 2)),
+    seed = 31
+  )
+  # Two honest outcomes exist: a feasible best mode, or -- when every
+  # mixture mean drifts outside the box, as this concave driver forces --
+  # the engine's clean no-feasible-mode error. What must never happen is
+  # an out-of-box `par`.
+  out <- tryCatch(
+    suppressWarnings(optimix(prob, method = "proxymix_map")),
+    error = function(e) e
+  )
+  if (inherits(out, "error")) {
+    expect_match(conditionMessage(out), "no mode inside the bounds")
+  } else {
+    expect_true(all(out$par >= -2 & out$par <= 2))
+  }
+})

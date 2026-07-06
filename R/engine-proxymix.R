@@ -59,7 +59,17 @@
     minimise = !isTRUE(problem@maximise)
   )
   modes <- proxymix::gmm_modes(fit)
-  best <- as.numeric(modes$modes[1L, ])
+  # A mixture component's mean can sit outside the design box; the result's
+  # `par` must be feasible, so the best in-bounds mode is reported and an
+  # all-infeasible fit is a clean failure rather than an out-of-box "optimum".
+  keep <- .feasible_rows(modes$modes, sp@lower, sp@upper)
+  if (!any(keep)) {
+    stop(call. = FALSE, paste(
+      "The proxymix mixture returned no mode inside the bounds;",
+      "use `optimix_map()` or another engine for this problem."
+    ))
+  }
+  best <- as.numeric(modes$modes[which(keep)[1L], ])
   val <- counted_fn(best)
   # from_objective() (checked against proxymix 0.15.1) has no budget-like
   # argument to forward `max_evals` to, so say so instead of ignoring it.
