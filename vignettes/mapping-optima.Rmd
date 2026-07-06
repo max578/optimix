@@ -1,0 +1,103 @@
+---
+title: "Mapping optima and the orchestra manifest"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Mapping optima and the orchestra manifest}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+library(optimix)
+```
+
+## When one argmin is not the question
+
+An optimiser usually answers "what is the single best point". On a multimodal
+problem that answer hides information: a design task may have several
+solutions of essentially equal quality, and which one is preferable can
+depend on constraints the objective never saw. The useful answer is then the
+whole set of good solutions, and `optimix_map()` returns exactly that.
+
+The classic demonstration is Himmelblau's function, a two-dimensional surface
+with four global minima of equal depth:
+
+```{r himmelblau-def}
+himmelblau <- function(x) {
+  (x[1]^2 + x[2] - 11)^2 + (x[1] + x[2]^2 - 7)^2
+}
+```
+
+## Two paths, one function
+
+`optimix_map()` has a native path and a premium path, and picks between them
+automatically. The native path is always available: it runs a local search
+from many Latin-hypercube starts and clusters the converged points into
+distinct optima, using nothing beyond base R. When a new-enough proxymix is
+installed, the premium path returns a calibrated Gaussian-mixture map over
+the optima instead -- a queryable posterior, carried in the result's `map`
+field. The result's `source` field reports which path produced it:
+
+```{r map}
+set.seed(11)
+map <- optimix_map(himmelblau, lower = c(-6, -6), upper = c(6, 6))
+map
+map$source
+```
+
+The two paths answer the same question in different registers. On the native
+path each optimum is polished by a local search, so the four printed values
+sit at effectively zero and the locations are sharp. On the proxymix path the
+modes are peaks of a fitted mixture -- a summary of where the low-value mass
+lies -- so locations are approximate and a shallow extra mode can appear
+beside the four true wells. The modes are printed best first in either case,
+so deep optima separate from shallow artefacts at a glance, and the `modes`
+and `values` fields give the full set programmatically.
+
+## Asking auto for a map
+
+The same intent can be declared on the main verb. `goal = "map"` steers
+`method = "auto"` towards a map-emitting engine, and the result carries the
+queryable mixture in `$map`:
+
+```{r goal-map, eval = requireNamespace("proxymix", quietly = TRUE)}
+set.seed(12)
+res <- optimix(himmelblau, lower = c(-6, -6), upper = c(6, 6), goal = "map")
+summary(res)
+```
+
+The fallback is honest. When no map-emitting engine fits the problem --
+proxymix absent, or the dimension beyond its range -- `auto` does not fake a
+map. It returns the single best optimum through the usual rules and says so
+in the provenance, so a consumer can always tell what it received. Note also
+the evaluation count above: the mixture path spends many cheap evaluations
+to map the whole optimum set, so it suits inexpensive objectives, and the
+selector reaches it only when a map is asked for.
+
+## The orchestra manifest
+
+An optimisation result often feeds a downstream system rather than a person,
+and `as_orchestra_manifest()` re-expresses a result as a typed hand-off
+contract for that purpose. The optimum rides in `params` as a one-row table.
+The typed summary and metadata carry the engine, the convergence verdict,
+and the true evaluation count. The `uncertainty_available` flag records
+whether the manifest carries a posterior over the optimum (a mixture map) or
+a bare point estimate, so a consumer never mistakes one for the other. The
+payload is integrity-hashed at emission, and `verify_manifest()` recomputes
+the hash to detect any later modification:
+
+```{r manifest}
+best <- optimix(himmelblau, lower = c(-6, -6), upper = c(6, 6),
+                method = "base_optim")
+m <- as_orchestra_manifest(best)
+m@params
+m@summary$headline
+m@metadata$uncertainty_available
+verify_manifest(m)
+```
+
+Here a single-point engine produced the result, so the flag is `FALSE` and
+the manifest honestly offers a point estimate only. Had the proxymix mixture
+engine run, the flag would be `TRUE` and the metadata would carry the full
+solution map alongside the optimum.

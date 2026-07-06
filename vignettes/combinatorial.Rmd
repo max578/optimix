@@ -1,0 +1,120 @@
+---
+title: "Combinatorial optimisation and delta evaluation"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Combinatorial optimisation and delta evaluation}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+library(optimix)
+```
+
+## Orderings as a design space
+
+Not every decision variable is a real number. Scheduling, routing, and
+assignment problems search over orderings, and `space_permutation(n)`
+declares exactly that: a design space whose points are the permutations of
+`seq_len(n)`. It is used through the power path -- build an `optim_problem()`
+whose objective takes an integer permutation and returns a single number.
+
+The engine behind it is `perm_sa`, a swap-move simulated annealer with
+Metropolis acceptance and geometric cooling. It needs nothing beyond base R,
+so everything on this page runs on a machine with no suggested packages
+installed, and `method = "auto"` routes every permutation problem to it. It
+is a general-purpose permutation engine, not a specialist: on large instances
+of a structured problem such as the travelling salesman, a dedicated solver
+with problem-specific moves will beat it.
+
+## A worked example
+
+Twenty items of different weights must be placed into twenty positions of
+increasing cost, paying the item's weight times the position's cost. The best
+ordering puts the heaviest items in the cheapest positions:
+
+```{r data}
+n <- 20L
+set.seed(101)
+w <- as.numeric(sample.int(100L, n))
+pos_cost <- as.numeric(seq_len(n))
+placement_cost <- function(perm) {
+  sum(w[perm] * pos_cost)
+}
+```
+
+## The delta hook
+
+Simulated annealing proposes thousands of swaps, and re-evaluating the whole
+objective after each one is wasteful when a swap only touches a sliver of the
+sum. The contract's `delta_fn` hook makes that saving first-class. Its
+signature is `delta_fn(perm, i, j)`, and it must return the change in the
+objective when the entries at positions `i` and `j` of `perm` are swapped.
+For the placement objective the change involves only the two moved items:
+
+```{r delta}
+placement_delta <- function(perm, i, j) {
+  (w[perm[i]] - w[perm[j]]) * (pos_cost[j] - pos_cost[i])
+}
+```
+
+A wrong delta would corrupt the anneal silently, so optimix does not take the
+hook on trust. At startup the claimed delta of one random swap is verified
+against a full re-evaluation and a disagreement stops with an error. During
+the anneal the accumulated value is re-synchronised periodically with a fresh
+full evaluation, and the value reported in the result is always a fresh full
+evaluation at the best permutation found -- never the accumulated shortcut.
+
+## Same trajectory, fewer evaluations
+
+The two problems below are identical except for the hook, and they share a
+seed. The engine draws its random numbers in the same order whether or not a
+`delta_fn` is present, and the delta here is exact, so both runs walk the
+same trajectory and return the same permutation:
+
+```{r runs}
+prob_plain <- optim_problem(
+  fn = placement_cost,
+  space = space_permutation(n),
+  max_evals = 4000,
+  seed = 7
+)
+prob_delta <- optim_problem(
+  fn = placement_cost,
+  space = space_permutation(n),
+  max_evals = 4000,
+  seed = 7,
+  delta_fn = placement_delta
+)
+plain <- optimix(prob_plain)
+fast <- optimix(prob_delta)
+identical(plain$par, fast$par)
+c(plain = plain$value, fast = fast$value)
+```
+
+In this seeded run the anneal lands on the exact optimum, which for this
+objective can be computed directly:
+
+```{r exact}
+sum(sort(w, decreasing = TRUE) * pos_cost)
+```
+
+## Counting honestly
+
+`counts[["function"]]` counts true objective evaluations only. Calls to the
+`delta_fn` never touch the objective, so they are tallied separately in the
+diagnostics field `delta_evals` rather than folded into the count:
+
+```{r counts}
+c(plain = plain$counts[["function"]], fast = fast$counts[["function"]])
+c(plain = plain$diagnostics$delta_evals, fast = fast$diagnostics$delta_evals)
+```
+
+The plain run pays one full evaluation per scored move. With the hook, the
+objective is touched only for the initial score, the startup contract check,
+the periodic re-syncs, and the final fresh evaluation of the returned value
+-- a few true evaluations in place of four thousand, for the same answer.
+For objectives where a full evaluation is genuinely expensive (a delta over
+a large assignment or schedule), this is the difference between an anneal
+that explores and one that stalls.

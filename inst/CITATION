@@ -1,0 +1,16 @@
+citHeader("To cite optimix in publications, please use:")
+
+bibentry(
+  bibtype = "Manual",
+  title = "optimix: A Unified Contract and Auto-Selector for Efficient Optimisers",
+  author = person("Max", "Moldovan",
+                  comment = c(ORCID = "0000-0001-9680-8474")),
+  year = "2026",
+  note = "R package version 0.1.0",
+  url = "https://github.com/max578/optimix"
+)
+
+citFooter(paste(
+  "A methods paper describing the per-instance selector and its validation",
+  "is in preparation; this entry will be updated on publication."
+))

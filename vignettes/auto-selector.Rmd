@@ -1,0 +1,120 @@
+---
+title: "The auto selector and racing"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{The auto selector and racing}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+library(optimix)
+```
+
+## Why per-instance selection
+
+No optimiser wins everywhere. Rice framed this in 1976 as the
+algorithm-selection problem: pick, per problem instance, the portfolio
+member that will perform best. `method = "auto"` is the optimix answer.
+It reads what the problem declares -- design space, noise, expense,
+budget -- commits to an engine, and records the decision in the result.
+
+The examples below use a shifted multimodal test function, a Rastrigin-style
+surface whose global minimum sits at 1.3 in each coordinate:
+
+```{r objective}
+shifted <- function(x) {
+  z <- x - 1.3
+  sum(z^2 - 10 * cos(2 * pi * z) + 10)
+}
+```
+
+## Tier 1: the rules
+
+When the problem's declaration already determines a good choice, `auto`
+applies a transparent rule and spends no evaluations on selection. A noisy
+objective goes to a noise-tolerant global engine. An expensive objective goes
+to Bayesian optimisation, which spends few true evaluations. A permutation
+design space goes to the native simulated annealer, described in
+*Combinatorial optimisation and delta evaluation*. And a small budget stays
+with the rules, because probing the landscape would eat too much of it. A
+noisy objective also never races -- ranking engines on one short noisy trial
+each would rank them on luck -- so its rule commits directly:
+
+```{r tier1-noisy, eval = requireNamespace("GenSA", quietly = TRUE)}
+noisy_prob <- optim_problem(
+  fn = function(x) sum(x^2) + rnorm(1, sd = 0.05),
+  space = space_box(lower = c(-3, -3), upper = c(3, 3)),
+  objective = objective_noisy(sd = 0.05),
+  max_evals = 500, seed = 42
+)
+optimix(noisy_prob)$provenance[c("engine", "why", "tier")]
+```
+
+## Tier 3: racing
+
+For a deterministic objective with an ample budget, `auto` escalates from
+rules to evidence. It samples the landscape once with a Latin-hypercube
+design, gives each installed candidate engine a short trial from the best
+sampled point as a shared warm start, and commits the remaining budget to the
+trial leader, warm-started from the leader's own best. The landscape sample
+and every trial evaluation are charged against the budget, and the final run
+receives only what is left.
+
+```{r auto-race, eval = requireNamespace("GenSA", quietly = TRUE) && requireNamespace("cmaes", quietly = TRUE)}
+set.seed(1)
+res <- optimix(shifted, lower = c(-5, -5), upper = c(5, 5))
+res
+res$provenance[c("engine", "tier", "why")]
+res$provenance$race
+```
+
+The provenance is how a result explains itself: the engine that ran
+(`engine`), why it was chosen (`why`), and which tier decided (`tier` is 1
+for a rule and 3 for a race). A raced result also keeps the trial scores.
+
+## Asking for a race directly
+
+`method = "race"` skips the deliberation and races the installed global
+engines immediately. It needs a continuous box space and at least two
+installed candidates:
+
+```{r explicit-race, eval = requireNamespace("GenSA", quietly = TRUE) && requireNamespace("cmaes", quietly = TRUE)}
+set.seed(2)
+raced <- optimix(shifted, lower = c(-5, -5), upper = c(5, 5),
+                 method = "race")
+raced$provenance$why
+```
+
+## Budgets are respected
+
+`max_evals` caps the true objective evaluations -- a soft cap, since an
+engine may finish the internal step it is in -- and the reported count is
+the honest total across every stage of the search. A budget of 200 is too
+small for a race here (the landscape sample alone would cost a quarter of
+it), so `auto` stays with the tier-1 rule, and the count sits on the cap:
+
+```{r budget-cap, eval = requireNamespace("GenSA", quietly = TRUE)}
+set.seed(3)
+capped <- optimix(shifted, lower = c(-5, -5), upper = c(5, 5),
+                  max_evals = 200)
+capped$provenance$tier
+capped$counts[["function"]]
+```
+
+## The evidence
+
+On held-out test functions never used to design the rules, `auto` beat the
+best fixed single engine where it matters most. At a constrained budget of
+300 evaluations per dimension it solved more instances (a success rate of
+0.63 against 0.56) at better median quality and lower cost. At a generous
+budget it matched the single-best engine's quality with about forty per cent
+fewer evaluations.
+
+A feature-based shortcut -- route problems that look smooth to a cheap local
+solver -- was prototyped and rejected on the same held-out evidence: one
+function is multimodal yet looks perfectly quadratic to a coarse sample (a
+bowl hiding a cosine ripple), so no feature threshold routes it safely.
+Racing is feature-free, resolving such cases by actually trying the engines,
+and that is why the escalation is a race rather than a landscape heuristic.

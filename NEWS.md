@@ -1,7 +1,13 @@
-# optimix 0.0.0.9000
+# optimix 0.1.0
 
-## Bug fixes (2026-07-05 correctness review)
+## Bug fixes
 
+* **The proxymix paths never report an infeasible optimum.** A fitted
+  mixture's component means can drift outside the design box; `optimix_map()`
+  now drops out-of-bounds modes (falling back to the native multi-start path
+  when none survive, with a warning), and the `proxymix_map` engine reports
+  the best in-bounds mode or fails cleanly rather than returning an
+  out-of-box `par`.
 * **An explicit `max_evals` is now a hard budget.** Previously `base_optim`
   interpreted the budget as L-BFGS-B *iterations* (each costing roughly
   `1 + 2d` evaluations), the population engines applied generation floors that
@@ -72,6 +78,16 @@
 
 ## New features
 
+* **Release infrastructure.** A README with the positioning and related-work
+  statement, three new vignettes (*The auto selector and racing*,
+  *Combinatorial optimisation and delta evaluation*, *Mapping optima and the
+  orchestra manifest*) alongside *Getting started with optimix*, a pkgdown
+  configuration, a citation file, and continuous integration with a
+  cross-platform check matrix plus a zero-suggests job that proves the
+  package runs with no optional engine installed.
+* **Dependency floor.** The one external import (`digest`) is gone: the
+  manifest hash now uses `tools::sha256sum()`, so the package imports only
+  `S7` beyond base R, and the minimum R version rises to 4.5 accordingly.
 * **Capability routing in `auto`.** `optimix(method = "auto")` now honours a
   `goal` argument. `goal = "map"` routes to a map-emitting engine (proxymix's
   `from_objective` mixture) for the full set of optima + a posterior over the
@@ -110,7 +126,7 @@
   problem across engines, and an incremental `delta_eval` scoring hook for engines
   that can re-score a local move without a full re-evaluation.
 
-## Bug fixes
+## Earlier development fixes
 
 * **Degenerate (pinned) box dimensions now solve.** A `space_box()` with a
   pinned coordinate (`lower == upper`) is a legal design space the validator
