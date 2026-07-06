@@ -28,6 +28,10 @@ jobs:
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       R_KEEP_PKG_SOURCE: yes
+      # proxymix (a suggested engine) is a private federation package with no
+      # public repository, so the resolver cannot install it and the check
+      # must not require it; its tests skip when it is absent.
+      _R_CHECK_FORCE_SUGGESTS_: false
     steps:
       - uses: actions/checkout@v4
 
@@ -39,9 +43,24 @@ jobs:
           http-user-agent: ${{ matrix.config.http-user-agent }}
           use-public-rspm: true
 
+      # Hard dependencies plus the CRAN-resolvable Suggests, named explicitly
+      # so the unresolvable proxymix is never requested.
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          extra-packages: any::rcmdcheck
+          dependencies: '"hard"'
+          extra-packages: |
+            any::rcmdcheck
+            any::testthat
+            any::knitr
+            any::rmarkdown
+            any::GenSA
+            any::DEoptim
+            any::DEoptimR
+            any::dfoptim
+            any::nloptr
+            any::cmaes
+            any::DiceKriging
+            any::smoof
           needs: check
 
       - uses: r-lib/actions/check-r-package@v2
