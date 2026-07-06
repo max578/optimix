@@ -1,13 +1,13 @@
 # ela.R -- Native exploratory-landscape-analysis features.
 #
-# A small, dependency-free ELA feature set computed from an initial design and
-# used by the tier-2 selector. flacco -- the usual ELA package -- is off CRAN, so
-# these are computed natively from base R: a Latin-hypercube design, two
-# meta-model fits (a linear and a separable-quadratic adjusted R-squared), and
-# the shape of the objective distribution. The meta-model R-squared is the
-# primary smoothness signal (Mersmann et al. 2011): a landscape that a quadratic
-# fits well is smooth and suits a cheap local optimiser, whereas a poor
-# quadratic fit signals ruggedness or multimodality and needs a global search.
+# A small, dependency-free ELA feature set computed from an initial design.
+# flacco -- the usual ELA package -- is off CRAN, so these are computed
+# natively from base R: a Latin-hypercube design, two meta-model fits (a
+# linear and a separable-quadratic adjusted R-squared), and the shape of the
+# objective distribution. The meta-model R-squared is the primary smoothness
+# signal (Mersmann et al. 2011): a landscape that a quadratic fits well is
+# smooth and suits a cheap local optimiser, whereas a poor quadratic fit
+# signals ruggedness or multimodality and needs a global search.
 
 # Sampling design --------------------------------------------------------------
 
@@ -40,17 +40,23 @@
 
 #' Sample an initial design and evaluate the objective on it
 #'
+#' The `best` row respects the problem's orientation: consumers (the tier-3
+#' race) warm-start from it, so on a maximisation problem it must be the
+#' largest sampled value, not the smallest.
+#'
 #' @param problem An [optim_problem].
 #' @param n The design size.
 #' @returns A list with `X` (the design), `y` (its objective values), and `best`
-#'   (the design row with the smallest value).
+#'   (the design row with the best value under the problem's orientation: the
+#'   largest `y` when `problem@maximise` is `TRUE`, the smallest otherwise).
 #' @noRd
 #' @keywords internal
 .ela_sample <- function(problem, n) {
   sp <- problem@space
   x_design <- .ela_lhs(n, sp@lower, sp@upper)
   y <- apply(x_design, 1L, problem@fn)
-  list(X = x_design, y = as.numeric(y), best = x_design[which.min(y), ])
+  best_i <- if (isTRUE(problem@maximise)) which.max(y) else which.min(y)
+  list(X = x_design, y = as.numeric(y), best = x_design[best_i, ])
 }
 
 # Meta-model features ----------------------------------------------------------

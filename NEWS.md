@@ -1,7 +1,93 @@
-# optimix 0.0.0.9000
+# optimix 0.1.0
+
+## Bug fixes
+
+* **The proxymix paths never report an infeasible optimum.** A fitted
+  mixture's component means can drift outside the design box; `optimix_map()`
+  now drops out-of-bounds modes (falling back to the native multi-start path
+  when none survive, with a warning), and the `proxymix_map` engine reports
+  the best in-bounds mode or fails cleanly rather than returning an
+  out-of-box `par`.
+* **An explicit `max_evals` is now a hard budget.** Previously `base_optim`
+  interpreted the budget as L-BFGS-B *iterations* (each costing roughly
+  `1 + 2d` evaluations), the population engines applied generation floors that
+  could multiply a tight budget many-fold (`deoptim` at `d = 10` spent 2100
+  evaluations against `max_evals = 50`), and the tier-3 race charged its
+  landscape sample to the count without deducting it from the final
+  allocation. Every engine now fits its run to an explicit budget (shrinking
+  the population before the run length, within at most one generation's
+  overshoot) or refuses with an actionable message stating its minimum; the
+  race subtracts both the trials and the sample from the final run's share.
+  When `max_evals` is left unset, engine defaults are unchanged. A dedicated
+  budget-honesty test file pins `counts[["function"]]` to a ground-truth
+  counter for every engine family.
+* **`cmaes_ipop` removed after honest re-measurement.** The engine promised
+  IPOP restarts with a doubled population, but the doubled `lambda` was
+  computed and never passed to `cmaes::cma_es()`, and its restart loop
+  swallowed every error -- including errors raised by the user's objective --
+  and could return the start point as a "converged" result. The
+  implementation was fixed (control list carrying `lambda`, verified against
+  the installed package's documentation and source; objective errors
+  re-thrown; failed restarts reported truthfully) and the CMA family slot
+  re-measured on the bake-off suite: the corrected engine is
+  indistinguishable from plain `cmaes` on every function and dimension
+  (success 0.57 vs 0.57 over 180 instances), because under an evaluation
+  budget the first run consumes the whole budget and a restart almost never
+  fires -- the engine's original bake-off advantage was an artifact of the
+  broken lambda arithmetic accidentally splitting the budget across random
+  restarts. Per the zoo's evidence-based curation rule the engine is dropped
+  rather than shipped without measured value; the `auto` race now fields
+  plain `cmaes` in its place, and a stagnation-triggered true IPOP remains
+  an open candidate for a future release.
+* **`optimix_map()` no longer garbles one-dimensional multimodal results.**
+  The native clustering path collapsed `k` distinct optima of a
+  one-dimensional problem into a single row (a `t(vapply())` shape trap);
+  a d = 1 double well now returns both optima. The native path is also now
+  exercised directly in the tests (previously every "native" test silently
+  took the proxymix branch when proxymix was installed).
+* **A wrong `delta_fn` is caught instead of silently corrupting `perm_sa`.**
+  The incremental contract is verified against a full re-evaluation on one
+  random swap before it is trusted, the accumulated value is re-synchronised
+  periodically, and the reported `value` is always a fresh evaluation at the
+  returned permutation. `counts[["function"]]` now reports true objective
+  evaluations, with delta evaluations reported separately in the
+  diagnostics; a `warm_start` that is not a permutation of `1:n` is
+  rejected.
+* **A problem `seed` no longer disturbs the caller's random-number stream.**
+  The session's `.Random.seed` is saved and restored around a seeded solve,
+  so simulation studies that interleave optimix calls with their own draws
+  keep their reproducibility.
+* **Selection and reporting honesty.** The landscape sample now respects
+  `maximise = TRUE` (race trials previously warm-started from the *worst*
+  sampled point on maximisation problems); one failing engine no longer
+  aborts the whole race while healthy candidates remain (the failure is
+  recorded in the provenance); a `bayesopt` run whose surrogate fit fails
+  reports that truthfully instead of claiming a completed run; the proxymix
+  mapper honours the problem seed, reports real evaluation counts, and
+  states that it cannot honour `max_evals`; solving a problem with pinned
+  dimensions is recorded in the provenance; `provenance$tier` is populated
+  uniformly across routes.
+* **Contract validation hardening.** `warm_start` must lie within its box
+  bounds (previously an out-of-bounds start failed deep inside the backend
+  with an opaque message); `max_evals` must be a whole number in
+  `[1, .Machine$integer.max]`; `optim_engine()` validates its metadata
+  (name, dimension range, accepted spaces); replacing a *built-in* engine
+  via `register_optimiser()` now warns; the never-populated `archive` field
+  was removed from the result contract, and results are documented as
+  session objects with `as_optim()` as the durable form.
 
 ## New features
 
+* **Release infrastructure.** A README with the positioning and related-work
+  statement, three new vignettes (*The auto selector and racing*,
+  *Combinatorial optimisation and delta evaluation*, *Mapping optima and the
+  orchestra manifest*) alongside *Getting started with optimix*, a pkgdown
+  configuration, a citation file, and continuous integration with a
+  cross-platform check matrix plus a zero-suggests job that proves the
+  package runs with no optional engine installed.
+* **Dependency floor.** The one external import (`digest`) is gone: the
+  manifest hash now uses `tools::sha256sum()`, so the package imports only
+  `S7` beyond base R, and the minimum R version rises to 4.5 accordingly.
 * **Capability routing in `auto`.** `optimix(method = "auto")` now honours a
   `goal` argument. `goal = "map"` routes to a map-emitting engine (proxymix's
   `from_objective` mixture) for the full set of optima + a posterior over the
@@ -40,7 +126,7 @@
   problem across engines, and an incremental `delta_eval` scoring hook for engines
   that can re-score a local move without a full re-evaluation.
 
-## Bug fixes
+## Earlier development fixes
 
 * **Degenerate (pinned) box dimensions now solve.** A `space_box()` with a
   pinned coordinate (`lower == upper`) is a legal design space the validator

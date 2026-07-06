@@ -2,3 +2,6 @@
 ^\.Rproj\.user$
 ^CONSTELLATION_MEMBER\.md$
 ^critical_review_.*\.md$
+^\.lintr$
+^\.github$
+^_pkgdown\.yml$

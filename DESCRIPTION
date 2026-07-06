@@ -1,6 +1,6 @@
 Package: optimix
 Title: A Unified Contract and Auto-Selector for Efficient Optimisers
-Version: 0.0.0.9000
+Version: 0.1.0
 Authors@R:
     person("Max", "Moldovan", , "max.moldovan@gmail.com",
            role = c("aut", "cre", "cph"),
@@ -15,9 +15,8 @@ License: MIT + file LICENSE
 Encoding: UTF-8
 Language: en-AU
 Depends:
-    R (>= 4.3)
+    R (>= 4.5)
 Imports:
-    digest,
     graphics,
     S7,
     stats,

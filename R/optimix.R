@@ -27,18 +27,18 @@
 #'   engine use its own default.
 #' @param goal What to return: `"optimum"` (the default) for the single best
 #'   point, or `"map"` for the full set of optima with a posterior over the
-#'   optimum-set. `goal = "map"` steers `method = "auto"` to a map-emitting engine
-#'   (proxymix's `from_objective` mixture); it is ignored when a specific `method`
-#'   is named. Grounded in the 2026-06-24 from_objective routing study: the mixture
-#'   engine uniquely wins find-all-modes / uncertainty problems but loses
-#'   single-point jobs on cost, so it is auto-selected only for `goal = "map"`. For
-#'   the richer queryable map object see [optimix_map()].
+#'   optimum-set. `goal = "map"` steers `method = "auto"` to a map-emitting
+#'   engine (proxymix's `from_objective` mixture); it is ignored when a
+#'   specific `method` is named. For the richer queryable map object see
+#'   [optimix_map()].
 #'
 #' @returns An `optimix_result`: a list shaped like a [stats::optim()] result
 #'   (`par`, `value`, `counts`, `convergence`, `message`) with optimix extras
-#'   (`provenance`, `archive`, `map`, `diagnostics`, `problem`). It has
+#'   (`provenance`, `map`, `diagnostics`, `problem`). It has
 #'   `print()`, `summary()`, `plot()`, `coef()`, `as.data.frame()`, and
-#'   [as_optim()] methods.
+#'   [as_optim()] methods. Results embed the problem, including the objective
+#'   closure and its environment, and are therefore session objects;
+#'   [as_optim()] gives the minimal durable form for storage.
 #' @examples
 #' # Easy path: minimise a quadratic on a box.
 #' optimix(function(x) sum(x^2), lower = c(-5, -5), upper = c(5, 5),
@@ -50,6 +50,7 @@
 #'   space = space_box(lower = c(-5, -5), upper = c(5, 5))
 #' )
 #' optimix(prob, method = "base_optim")
+#' @family results
 #' @export
 optimix <- function(fn, lower = NULL, upper = NULL, ..., method = "auto",
                     maximise = FALSE, max_evals = NULL,
@@ -60,13 +61,8 @@ optimix <- function(fn, lower = NULL, upper = NULL, ..., method = "auto",
   } else {
     .check_fn(fn)
     .check_bounds(lower, upper)
-    if (!is.logical(maximise) || length(maximise) != 1L || is.na(maximise)) {
-      stop(call. = FALSE, "`maximise` must be a single `TRUE` or `FALSE`.")
-    }
-    if (!is.null(max_evals) &&
-        (!is.numeric(max_evals) || length(max_evals) != 1L || is.na(max_evals))) {
-      stop(call. = FALSE, "`max_evals` must be a single number, or `NULL`.")
-    }
+    .check_scalar_logical(maximise, "maximise")
+    .check_scalar_number(max_evals, "max_evals", null_ok = TRUE)
     dots <- list(...)
     obj_fn <- if (length(dots) > 0L) {
       function(x) do.call(fn, c(list(x), dots))
@@ -108,11 +104,34 @@ maximise <- function(fn, lower, upper, ...) {
 #' @noRd
 #' @keywords internal
 .optimise <- function(problem, method = "auto", goal = "optimum") {
-  if (!is.character(method) || length(method) != 1L) {
-    stop(call. = FALSE, paste(
-      "`method` must be a single string: an engine name,",
-      "\"auto\", or \"race\". See `list_optimisers()`."
-    ))
+  .check_scalar_string(method, "method", msg = paste(
+    "`method` must be a single string: an engine name,",
+    "\"auto\", or \"race\". See `list_optimisers()`."
+  ))
+
+  # ---- Preserve the caller's RNG state across a seeded solve --------------
+  # A problem seed makes the engines call set.seed(), which would otherwise
+  # leave the session RNG continuing the problem's stream after the call.
+  # Save the global .Random.seed (when one exists) and restore it on exit, so
+  # a seeded optimix() call is invisible to the caller's subsequent draws.
+  # The reduced-problem recursion below re-enters this function; the inner
+  # save/restore is a no-op nested inside the outer one, so composing with
+  # `add = TRUE` keeps both correct.
+  if (!is.na(problem@seed)) {
+    has_rng <- exists(".Random.seed", envir = globalenv(), inherits = FALSE)
+    old_rng <- if (has_rng) {
+      get(".Random.seed", envir = globalenv(), inherits = FALSE)
+    }
+    on.exit(
+      if (has_rng) {
+        assign(".Random.seed", old_rng, envir = globalenv())
+      } else if (
+        exists(".Random.seed", envir = globalenv(), inherits = FALSE)
+      ) {
+        rm(".Random.seed", envir = globalenv())
+      },
+      add = TRUE
+    )
   }
 
   # ---- Reduce any pinned (lower == upper) box dimensions ------------------
@@ -132,6 +151,20 @@ maximise <- function(fn, lower, upper, ...) {
     par[reduced$free] <- inner$par
     inner$par <- par
     inner$problem <- problem
+    # A mixture map produced on the reduced problem lives in the reduced
+    # coordinates, so lifting `$par` alone would leave it inconsistent with
+    # the full-dimensional result. Dropping it is the honest option.
+    if (!is.null(inner$map)) {
+      warning(call. = FALSE, paste(
+        "The mixture map is not available for a problem with pinned",
+        "dimensions; dropping `$map` from the result."
+      ))
+      inner$map <- NULL
+    }
+    inner$provenance$why <- sprintf(
+      "%s; solved over %d free of %d dimensions (pinned reduction)",
+      inner$provenance$why, sum(reduced$free), length(reduced$free)
+    )
     return(inner)
   }
 
@@ -143,9 +176,11 @@ maximise <- function(fn, lower, upper, ...) {
     if (isTRUE(plan$tier == 3L)) return(.run_race(problem, plan))
     name <- plan$engine
     why <- plan$why
+    tier <- plan$tier
   } else {
     name <- method
     why <- "user-specified"
+    tier <- NA_integer_
   }
   engine <- .get_engine(name)
   if (is.null(engine)) {
@@ -155,7 +190,8 @@ maximise <- function(fn, lower, upper, ...) {
   }
   if (!isTRUE(engine@available())) {
     stop(call. = FALSE, sprintf(
-      "Optimiser `%s` needs package `%s`. Install it, or use method = \"auto\".",
+      paste("Optimiser `%s` needs package `%s`. Install it, or use",
+            "method = \"auto\"."),
       name, engine@pkg
     ))
   }
@@ -163,6 +199,7 @@ maximise <- function(fn, lower, upper, ...) {
   res <- engine@run(problem)
   res$provenance$engine <- name
   res$provenance$why <- why
+  res$provenance$tier <- tier
   res
 }
 

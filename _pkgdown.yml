@@ -1,0 +1,50 @@
+url: ~
+
+template:
+  bootstrap: 5
+
+reference:
+  - title: Solve a problem
+    desc: The one verb, its readable aliases, and the typed problem contract.
+    contents:
+      - optimix
+      - optim_problem
+  - title: Design spaces
+    desc: Where the search lives.
+    contents:
+      - space_box
+      - space_permutation
+      - opt_space
+  - title: Objective declarations
+    desc: What the function costs and how it misbehaves.
+    contents:
+      - objective_deterministic
+      - objective_noisy
+      - objective_expensive
+      - objective_spec
+  - title: Engines and the registry
+    desc: The curated portfolio and how to extend it.
+    contents:
+      - optim_engine
+      - register_optimiser
+      - list_optimisers
+  - title: Results
+    desc: The optim()-compatible result and the optima map.
+    contents:
+      - optimix_map
+      - as_optim
+  - title: Orchestra manifest
+    desc: The typed hand-off contract for downstream consumers.
+    contents:
+      - orchestra_manifest
+      - as_orchestra_manifest
+      - verify_manifest
+
+articles:
+  - title: Guides
+    navbar: ~
+    contents:
+      - optimix
+      - auto-selector
+      - combinatorial
+      - mapping-optima

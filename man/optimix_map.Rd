@@ -28,7 +28,8 @@ finite number to be minimised.}
 \item{tol}{The merge distance for clustering optima, as a fraction of the box
 width. Defaults to \code{0.05}.}
 
-\item{max_evals}{The per-start local-search budget, or \code{NULL} for the default.}
+\item{max_evals}{The per-start local-search budget, or \code{NULL} for the
+default.}
 }
 \value{
 An \code{optimix_map}: a list with \code{modes} (a matrix, one optimum per
@@ -48,3 +49,9 @@ optimix_map(
   lower = c(-2, -2), upper = c(2, 2)
 )
 }
+\seealso{
+Other results: 
+\code{\link{as_optim}()},
+\code{\link{optimix}()}
+}
+\concept{results}

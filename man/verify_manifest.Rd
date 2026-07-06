@@ -15,7 +15,8 @@ A list with logical \code{ok} and a human-readable \code{message}.
 \description{
 Recomputes the payload hash from the object's own load-bearing slots and
 compares it to the stored \code{data_hash}. A mismatch means the payload was
-modified after emission. Matches the reference contract's \code{verify_manifest()}.
+modified after emission. Matches the reference contract's
+\code{verify_manifest()}.
 }
 \examples{
 res <- optimix(function(x) sum(x^2), c(-5, -5), c(5, 5),
@@ -26,4 +27,9 @@ verify_manifest(m)
 }
 \seealso{
 \code{\link[=as_orchestra_manifest]{as_orchestra_manifest()}}
+
+Other orchestra manifest: 
+\code{\link{as_orchestra_manifest}()},
+\code{\link{orchestra_manifest}()}
 }
+\concept{orchestra manifest}

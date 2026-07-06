@@ -10,10 +10,12 @@
 #' Design-space base class
 #'
 #' Abstract parent for the design spaces an [optim_problem()] can search. Each
-#' concrete space declares the geometry an optimiser must respect. The only
-#' concrete space in this release is [space_box()].
+#' concrete space declares the geometry an optimiser must respect. The
+#' concrete spaces in this release are [space_box()] and
+#' [space_permutation()].
 #'
 #' @returns Not constructed directly; see [space_box()].
+#' @family design spaces
 #' @export
 opt_space <- S7::new_class("opt_space", abstract = TRUE)
 
@@ -30,6 +32,7 @@ opt_space <- S7::new_class("opt_space", abstract = TRUE)
 #' @returns An S7 object of class `space_box`.
 #' @examples
 #' space_box(lower = c(-5, -5), upper = c(5, 5))
+#' @family design spaces
 #' @export
 space_box <- S7::new_class(
   "space_box",
@@ -67,6 +70,7 @@ space_box <- S7::new_class(
 #' @returns An S7 object of class `space_permutation`.
 #' @examples
 #' space_permutation(5)
+#' @family design spaces
 #' @export
 space_permutation <- S7::new_class(
   "space_permutation",
@@ -100,6 +104,9 @@ space_permutation <- S7::new_class(
 #'   noise standard deviation, or `NA` when unknown.
 #'
 #' @returns An S7 object of class `objective_spec`.
+#' @examples
+#' objective_spec(kind = "noisy", noise_sd = 0.1)
+#' @family objective declarations
 #' @export
 objective_spec <- S7::new_class(
   "objective_spec",
@@ -130,6 +137,7 @@ objective_spec <- S7::new_class(
 #' @returns An [objective_spec] with `kind = "deterministic"`.
 #' @examples
 #' objective_deterministic()
+#' @family objective declarations
 #' @export
 objective_deterministic <- function() {
   objective_spec(kind = "deterministic")
@@ -146,6 +154,7 @@ objective_deterministic <- function() {
 #' @returns An [objective_spec] with `kind = "noisy"`.
 #' @examples
 #' objective_noisy(sd = 0.1)
+#' @family objective declarations
 #' @export
 objective_noisy <- function(sd = NA_real_) {
   objective_spec(kind = "noisy", noise_sd = as.numeric(sd))
@@ -159,6 +168,7 @@ objective_noisy <- function(sd = NA_real_) {
 #' @returns An [objective_spec] with `kind = "expensive"`.
 #' @examples
 #' objective_expensive()
+#' @family objective declarations
 #' @export
 objective_expensive <- function() {
   objective_spec(kind = "expensive")
@@ -201,6 +211,7 @@ objective_expensive <- function() {
 #'   fn = function(x) sum(x^2),
 #'   space = space_box(lower = c(-5, -5), upper = c(5, 5))
 #' )
+#' @family design spaces
 #' @export
 optim_problem <- S7::new_class(
   "optim_problem",

@@ -1,12 +1,18 @@
 test_that("gensa minimises a quadratic", {
   skip_if_not_installed("GenSA")
-  res <- optimix(sphere, lower = c(-5, -5), upper = c(5, 5), method = "gensa")
+  prob <- optim_problem(
+    fn = sphere, space = space_box(c(-5, -5), c(5, 5)), seed = 1
+  )
+  res <- optimix(prob, method = "gensa")
   expect_lt(res$value, 1e-2)
 })
 
 test_that("deoptim minimises a quadratic", {
   skip_if_not_installed("DEoptim")
-  res <- optimix(sphere, lower = c(-5, -5), upper = c(5, 5), method = "deoptim")
+  prob <- optim_problem(
+    fn = sphere, space = space_box(c(-5, -5), c(5, 5)), seed = 2
+  )
+  res <- optimix(prob, method = "deoptim")
   expect_lt(res$value, 1e-1)
 })
 
@@ -21,13 +27,19 @@ test_that("nloptr DIRECT-L minimises a quadratic", {
 
 test_that("cmaes minimises a quadratic", {
   skip_if_not_installed("cmaes")
-  res <- optimix(sphere, lower = c(-5, -5), upper = c(5, 5), method = "cmaes")
+  prob <- optim_problem(
+    fn = sphere, space = space_box(c(-5, -5), c(5, 5)), seed = 3
+  )
+  res <- optimix(prob, method = "cmaes")
   expect_lt(res$value, 1e-2)
 })
 
 test_that("deoptimr minimises a quadratic", {
   skip_if_not_installed("DEoptimR")
-  res <- optimix(sphere, lower = c(-5, -5), upper = c(5, 5), method = "deoptimr")
+  prob <- optim_problem(
+    fn = sphere, space = space_box(c(-5, -5), c(5, 5)), seed = 4
+  )
+  res <- optimix(prob, method = "deoptimr")
   expect_lt(res$value, 1e-1)
 })
 
@@ -49,34 +61,84 @@ test_that("nloptr BOBYQA minimises a quadratic", {
   expect_lt(res$value, 1e-2)
 })
 
-test_that("cmaes_ipop (restart CMA) minimises a quadratic", {
-  skip_if_not_installed("cmaes")
-  res <- optimix(
-    sphere,
-    lower = c(-5, -5), upper = c(5, 5), method = "cmaes_ipop"
+test_that("gensa is bitwise reproducible under a problem seed", {
+  skip_if_not_installed("GenSA")
+  # Guards the decision to keep the R-level seed alongside control$seed:
+  # GenSA also draws from R's RNG stream, so control$seed alone is not
+  # enough for bitwise reproducibility (probed 2026-07-05).
+  prob <- optim_problem(
+    fn = sphere, space = space_box(c(-5, -5), c(5, 5)), seed = 21
   )
-  expect_lt(res$value, 1e-2)
+  set.seed(101)
+  first <- optimix(prob, method = "gensa")
+  set.seed(2024)
+  second <- optimix(prob, method = "gensa")
+  expect_identical(first$par, second$par)
 })
 
-test_that("cmaes_ipop is reproducible under a seed", {
-  skip_if_not_installed("cmaes")
+test_that("bayesopt reports a failed GP fit truthfully", {
+  skip_if_not_installed("DiceKriging")
+  # max_evals = 3 in d = 2 leaves an initial design of two points, below
+  # DiceKriging's minimum (rows must exceed the dimension), so the first GP
+  # fit fails deterministically; the result must say so rather than claim a
+  # completed EGO run.
   prob <- optim_problem(
-    fn = sphere, space = space_box(c(-5, -5), c(5, 5)), seed = 3
+    fn = sphere, space = space_box(c(-5, -5), c(5, 5)),
+    seed = 4, max_evals = 3
   )
-  expect_equal(
-    optimix(prob, method = "cmaes_ipop")$par,
-    optimix(prob, method = "cmaes_ipop")$par
+  res <- optimix(prob, method = "bayesopt")
+  expect_identical(res$convergence, 1L)
+  expect_match(res$message, "GP fit failed at step 1")
+  expect_identical(res$diagnostics$gp_failures, 1L)
+})
+
+test_that("bayesopt rejects a one-evaluation budget cleanly", {
+  skip_if_not_installed("DiceKriging")
+  expect_error(
+    optimix(sphere, lower = c(-5, -5), upper = c(5, 5),
+            method = "bayesopt", max_evals = 1),
+    "at least 2"
   )
+})
+
+test_that("bayesopt survives a constant objective within budget", {
+  skip_if_not_installed("DiceKriging")
+  # A flat response drives every EI argmax to the same point; the duplicate
+  # guard replaces it with a seeded uniform draw, so the design never
+  # degenerates and the run ends at the budget, not in a km failure.
+  prob <- optim_problem(
+    fn = function(x) 1, space = space_box(c(-5, -5), c(5, 5)),
+    seed = 6, max_evals = 10
+  )
+  res <- optimix(prob, method = "bayesopt")
+  expect_identical(res$value, 1)
+  expect_lte(res$counts[["function"]], 10L)
 })
 
 test_that("bayesopt (EGO) solves a quadratic in few evaluations", {
   skip_if_not_installed("DiceKriging")
-  res <- optimix(
-    sphere,
-    lower = c(-5, -5), upper = c(5, 5), method = "bayesopt", max_evals = 45
+  prob <- optim_problem(
+    fn = sphere, space = space_box(c(-5, -5), c(5, 5)),
+    seed = 8, max_evals = 45
   )
+  res <- optimix(prob, method = "bayesopt")
   expect_lt(res$value, 1e-1)
   expect_lte(res$counts[["function"]], 50)
+})
+
+test_that("deoptimr rejects a NaN objective value (documented behaviour, F10)", {
+  skip_if_not_installed("DEoptimR")
+  # The contract requires fn to return a single finite number, so NaN is a
+  # contract violation; engines differ in their response, and the audit
+  # decision F10 (FINDINGS_AND_FIX_PLAN.md) documents DEoptimR's: JDEoptim
+  # hard-asserts a NaN-free fitness population rather than tolerating or
+  # penalising it. Pinning the assertion text keeps any drift visible -- a
+  # DEoptimR release change, or a future finite-guard wrapper silently
+  # becoming the default.
+  prob <- optim_problem(
+    fn = function(x) NaN, space = space_box(c(-1, -1), c(1, 1)), seed = 1
+  )
+  expect_error(optimix(prob, method = "deoptimr"), "anyNA(fpop)", fixed = TRUE)
 })
 
 test_that("a seed makes a stochastic engine reproducible", {

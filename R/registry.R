@@ -44,6 +44,7 @@
 #'   available = function() TRUE,
 #'   run = function(problem) NULL
 #' )
+#' @family engines and registry
 #' @export
 optim_engine <- S7::new_class(
   "optim_engine",
@@ -60,19 +61,38 @@ optim_engine <- S7::new_class(
     dim_max = S7::new_property(S7::class_numeric, default = Inf),
     available = S7::class_function,
     run = S7::class_function
-  )
+  ),
+  validator = function(self) {
+    if (length(self@name) != 1L || is.na(self@name) || !nzchar(self@name)) {
+      "`name` must be a single non-empty string"
+    } else if (length(self@dim_min) != 1L || length(self@dim_max) != 1L ||
+                 is.na(self@dim_min) || is.na(self@dim_max)) {
+      "`dim_min` and `dim_max` must be single numbers"
+    } else if (self@dim_min > self@dim_max) {
+      "`dim_min` must be less than or equal to `dim_max`"
+    } else if (length(self@accepts) == 0L ||
+                 any(is.na(self@accepts) | !nzchar(self@accepts))) {
+      "`accepts` must be a non-empty character vector"
+    } else {
+      NULL
+    }
+  }
 )
 
 # The registry and its accessors -----------------------------------------------
 
-# The registry is a private environment keyed by engine name.
+# The registry is a private environment keyed by engine name. The names of the
+# built-in engines are captured at registration time so register_optimiser()
+# can warn when a user replaces one of them.
 .engine_registry <- new.env(parent = emptyenv())
+.builtin_names <- new.env(parent = emptyenv())
 
 #' Register an optimiser engine
 #'
 #' Adds an [optim_engine] to the registry so it can be selected by name or by
 #' `method = "auto"`. Registering an engine with the same name as an existing
-#' one replaces it.
+#' one replaces it; replacing one of the built-in engines additionally emits a
+#' warning, since it changes what `method = "auto"` can dispatch to.
 #'
 #' @param engine An [optim_engine] to register.
 #'
@@ -86,10 +106,18 @@ optim_engine <- S7::new_class(
 #' )
 #' register_optimiser(engine)
 #' "my_solver" %in% list_optimisers()$name
+#' @family engines and registry
 #' @export
 register_optimiser <- function(engine) {
   if (!S7::S7_inherits(engine, optim_engine)) {
     stop(call. = FALSE, "`engine` must be an `optim_engine` object.")
+  }
+  builtins <- .builtin_names$engines
+  if (!is.null(builtins) && engine@name %in% builtins &&
+        exists(engine@name, envir = .engine_registry, inherits = FALSE)) {
+    warning(call. = FALSE, sprintf(
+      "Replacing built-in engine `%s`.", engine@name
+    ))
   }
   assign(engine@name, engine, envir = .engine_registry)
   invisible(engine@name)
@@ -115,7 +143,7 @@ register_optimiser <- function(engine) {
 #' @noRd
 #' @keywords internal
 .installed_engine_names <- function() {
-  nm <- ls(.engine_registry)
+  nm <- ls(.engine_registry, all.names = TRUE)
   if (length(nm) == 0L) return(character(0))
   keep <- vapply(nm, function(n) isTRUE(.get_engine(n)@available()), logical(1))
   nm[keep]
@@ -130,9 +158,10 @@ register_optimiser <- function(engine) {
 #'   `installed`, `global`, `noise_tolerant`, and `emits_map`.
 #' @examples
 #' list_optimisers()
+#' @family engines and registry
 #' @export
 list_optimisers <- function() {
-  nm <- ls(.engine_registry)
+  nm <- ls(.engine_registry, all.names = TRUE)
   if (length(nm) == 0L) {
     return(data.frame(
       name = character(0), package = character(0),
@@ -220,12 +249,6 @@ list_optimisers <- function() {
     run = .run_nloptr_bobyqa
   ))
   register_optimiser(optim_engine(
-    name = "cmaes_ipop", pkg = "cmaes", accepts = "space_box",
-    global = TRUE, stochastic = TRUE,
-    available = function() requireNamespace("cmaes", quietly = TRUE),
-    run = .run_cmaes_ipop
-  ))
-  register_optimiser(optim_engine(
     name = "bayesopt", pkg = "DiceKriging", accepts = "space_box",
     global = TRUE, dim_max = 15,
     available = function() requireNamespace("DiceKriging", quietly = TRUE),
@@ -236,5 +259,9 @@ list_optimisers <- function() {
     global = TRUE, emits_map = TRUE, dim_max = 10,
     available = .proxymix_ready, run = .run_proxymix
   ))
+  # At load time the registry holds exactly the built-ins registered above, so
+  # snapshotting it here captures the built-in names for the replacement
+  # warning in register_optimiser().
+  .builtin_names$engines <- ls(.engine_registry, all.names = TRUE)
   invisible(NULL)
 }

@@ -17,3 +17,9 @@ and the metadata \code{method = "auto"} uses to choose between them.
 \examples{
 list_optimisers()
 }
+\seealso{
+Other engines and registry: 
+\code{\link{optim_engine}()},
+\code{\link{register_optimiser}()}
+}
+\concept{engines and registry}
