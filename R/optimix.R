@@ -171,12 +171,14 @@ maximise <- function(fn, lower, upper, ...) {
   if (identical(method, "race")) {
     return(.optimise_race(problem))
   }
+  goal_abstained <- FALSE
   if (identical(method, "auto")) {
     plan <- .auto_select(problem, goal = goal)
     if (isTRUE(plan$tier == 3L)) return(.run_race(problem, plan))
     name <- plan$engine
     why <- plan$why
     tier <- plan$tier
+    goal_abstained <- isTRUE(plan$goal_abstained)
   } else {
     name <- method
     why <- "user-specified"
@@ -200,6 +202,15 @@ maximise <- function(fn, lower, upper, ...) {
   res$provenance$engine <- name
   res$provenance$why <- why
   res$provenance$tier <- tier
+  # refusal contract: `goal = "map"` could not be honoured (no fitting
+  # map-emitting engine), so this result is a typed "assumptions not met"
+  # abstention, not a silent point-optimum substitution. Prepending the class
+  # keeps every existing `optimix_result` method (print/summary/plot/...)
+  # working unchanged while letting the orchestra-wide predicate
+  # `is_orchestra_decline()` (integration/refusal_contract.R) recognise it.
+  if (isTRUE(goal_abstained)) {
+    class(res) <- c("optimix_map_abstention", class(res))
+  }
   res
 }
 

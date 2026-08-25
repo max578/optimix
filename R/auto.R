@@ -161,7 +161,13 @@
       "(install 'proxymix' for the posterior over all optima, p <= 10); ",
       "returning the single best optimum via ", fb$engine
     )
-    return(c(fb, list(tier = 1L)))
+    # refusal contract: this is optimix declining to honour the caller's
+    # `goal = "map"` assumption (mapping the request is out of reach of the
+    # installed engines), not just prose in `why` a caller has to grep. The
+    # marker is read by `.optimise()` (optimix.R) to stamp the returned
+    # result with a classed abstention token, so
+    # is_orchestra_decline() (integration/refusal_contract.R) recognises it.
+    return(c(fb, list(tier = 1L, goal_abstained = TRUE)))
   }
 
   # Expensive objectives and the racing default -------------------------------

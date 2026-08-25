@@ -24,9 +24,11 @@
 # other.
 
 # The manifest schema version this member emits. Tracks the reference
-# implementation; bump only with an additive (x.y) or breaking (x.0) change
-# there.
-MANIFEST_VERSION <- "1.1.0-draft"
+# implementation (integration/orchestra_manifest.R in ORCHESTRA_dev); bump
+# only with an additive (x.y) or breaking (x.0) change there. Currently at
+# 2.0.0-draft, which bumped the payload hash recipe (see `.hash_payload()`
+# below) to strip the version-varying serialize() header.
+MANIFEST_VERSION <- "2.0.0-draft"
 
 # The inferential-target enum, kept identical to the reference contract so a
 # consumer's dispatch never sees an unknown token.
@@ -51,7 +53,16 @@ MANIFEST_VERSION <- "1.1.0-draft"
 .hash_payload <- function(params, outputs, weights, obs_target, seed,
                           summary = NULL) {
   obj <- list(params, outputs, weights, obs_target, seed, summary)
-  raw <- serialize(obj, connection = NULL)
+  # Pinned to serialize format version 2, whose header is a fixed 14 bytes
+  # (magic, format, writer R version, minimum-R-to-read version). Those bytes
+  # are the ONLY part of the serialised representation that varies with the
+  # writer's R version; stripping them before hashing (the reference
+  # contract's recipe, integration/orchestra_manifest.R `.sha256()`) makes the
+  # digest reproducible across R versions. Hashing the un-stripped bytes (the
+  # prior implementation) made verify_manifest() fail whenever the reader's R
+  # differed from the writer's.
+  raw <- serialize(obj, connection = NULL, version = 2L)
+  raw <- raw[-seq_len(14L)]
   paste0("sha256:", as.character(tools::sha256sum(bytes = raw)))
 }
 
@@ -125,7 +136,16 @@ manifest_summary <- function(headline, abstained = FALSE, metrics = list(),
 #' @export
 orchestra_manifest <- S7::new_class(
   "orchestra_manifest",
-  package = "optimix",
+  # `package = NULL` (rather than the "optimix" default an S7 class picks up
+  # from its defining namespace) is deliberate: S7's inherits()/S7_inherits()
+  # dispatch is a check on the class NAME string, `paste(package, name,
+  # sep="::")`. A namespaced name of "optimix::orchestra_manifest" would never
+  # match the federation's reference class -- sourced outside any package
+  # namespace, hence bare "orchestra_manifest" -- so no orchestra consumer
+  # could ever recognise an optimix manifest (OPT-01). The bare name is what
+  # makes this a genuine implementation of the shared, cross-package contract
+  # rather than a same-shaped-but-foreign look-alike class.
+  package = NULL,
   properties = list(
     manifest_version = S7::new_property(
       S7::class_character,
@@ -304,7 +324,7 @@ as_orchestra_manifest.optimix_result <- function(x, ..., run_id = NULL,
     "optimix-", substr(sub("^sha256:", "", dh), 1L, 12L)
   )
 
-  orchestra_manifest(
+  m <- orchestra_manifest(
     manifest_version = MANIFEST_VERSION,
     emitter_package = "optimix",
     emitter_version = ev,
@@ -319,6 +339,20 @@ as_orchestra_manifest.optimix_result <- function(x, ..., run_id = NULL,
     timestamp = Sys.time(),
     data_hash = dh
   )
+
+  # refusal contract: a non-converged optimum is an "assumptions not met"
+  # verdict, already recorded honestly in `summary$abstained` -- but a bare
+  # boolean buried in a slot forces every consumer to know optimix's schema.
+  # Stamping the class lets the orchestra-wide predicate
+  # `is_orchestra_decline()` (integration/refusal_contract.R) recognise the
+  # abstention from `class(m)` alone, with no optimix-specific dispatch, the
+  # same way terroir's and bourse's own refusals are recognised. Prepending
+  # (not replacing) keeps `S7_inherits(m, orchestra_manifest)` true (OPT-01)
+  # and every existing `@`-slot access unaffected.
+  if (!converged) {
+    class(m) <- c("optimix_manifest_abstention", class(m))
+  }
+  m
 }
 
 #' Null-coalescing operator

@@ -6,7 +6,13 @@ test_that("a point optimiser emits a conformant parameters manifest", {
   res <- optimix(function(x) sum((x - 0.5)^2), c(-2, -2), c(2, 2),
                  method = "base_optim")
   m <- as_orchestra_manifest(res)
-  expect_s3_class(m, "optimix::orchestra_manifest")
+  # OPT-01: the emitted class must be the bare, unnamespaced "orchestra_manifest"
+  # token -- S7_inherits()/inherits() dispatch off the class *string*, and the
+  # federation's reference class (sourced outside any package namespace) has
+  # no "optimix::" prefix. A namespaced class name silently fails every
+  # federation consumer's `S7_inherits()`/`inherits()` check.
+  expect_s3_class(m, "orchestra_manifest")
+  expect_false(any(grepl("^optimix::", class(m))))
   expect_identical(m@inferential_target, "parameters")
   expect_identical(m@emitter_package, "optimix")
   expect_identical(m@method, "optimix:base_optim")
@@ -58,6 +64,12 @@ test_that("a non-converged result lifts to an abstaining manifest", {
   # an abstaining manifest still hashes and verifies: abstention is a verdict,
   # not a corruption
   expect_true(verify_manifest(m)$ok)
+  # refusal: a non-converged result is a typed "assumptions not met" object,
+  # not just a boolean buried in `summary$abstained` -- the orchestra-wide
+  # predicate `is_orchestra_decline()` (integration/refusal_contract.R) must
+  # recognise it from the class vector alone, with no optimix-specific code.
+  expect_true(any(grepl("_abstention$", class(m))))
+  expect_true(any(class(m) == "orchestra_manifest"))  # OPT-01 still holds
 })
 
 test_that("verify_manifest rejects a non-manifest input cleanly", {
@@ -93,4 +105,66 @@ test_that("the proxymix mixture engine carries the posterior over the optima", {
   expect_true(m@metadata$uncertainty_available)
   expect_false(is.null(m@metadata$solution_map))
   expect_true(verify_manifest(m)$ok)
+})
+
+test_that("OPT-02: MANIFEST_VERSION tracks the federation's reference constant", {
+  # Independent oracle: read the reference contract's own constant directly
+  # off disk (regex-extracted, not sourced -- sourcing the reference file
+  # pulls in PESTO/proxymix/S7 generics that are not this package's business)
+  # rather than trusting optimix's own copy of the number. Skips gracefully
+  # when the ORCHESTRA_dev workspace is not checked out alongside optimix_dev
+  # (e.g. a CRAN build), since the two are siblings, not a package dependency.
+  # Walked from `getwd()` upward rather than a fixed relative depth, since
+  # that depth differs between `devtools::test()` (package root) and
+  # `testthat::test_file()` (tests/testthat).
+  ref_path <- NULL
+  probe <- normalizePath(getwd(), mustWork = FALSE)
+  for (i1 in seq_len(8L)) {
+    cand <- file.path(probe, "ORCHESTRA_dev", "integration",
+                      "orchestra_manifest.R")
+    if (file.exists(cand)) {
+      ref_path <- cand
+      break
+    } # ends if, candidate found at this level
+    parent <- dirname(probe)
+    if (identical(parent, probe)) break  # reached filesystem root
+    probe <- parent
+  } # ends i1, walking up from getwd()
+  skip_if(is.null(ref_path),
+          "ORCHESTRA_dev reference contract not checked out alongside")
+  ref_lines <- readLines(ref_path, warn = FALSE)
+  hit <- grep('^MANIFEST_VERSION\\s*<-\\s*"', ref_lines, value = TRUE)
+  skip_if(length(hit) == 0L, "reference constant not found (format drift)")
+  ref_version <- sub('.*"([^"]+)".*', "\\1", hit[1])
+  expect_identical(MANIFEST_VERSION, ref_version)
+})
+
+test_that("OPT-03: the payload hash strips the version-varying serialize header", {
+  # The reference recipe (integration/orchestra_manifest.R .sha256()):
+  # serialize at format version 2, drop its fixed 14-byte header (magic,
+  # format, writer/minimum R versions -- the only bytes that vary by R
+  # version), then hash the remainder. Reimplemented independently here
+  # (not calling optimix:::.hash_payload) so the test is a real oracle: it
+  # fails against the pre-fix implementation, which hashes the raw
+  # serialize() output header and all.
+  params <- data.frame(par1 = 0.5, par2 = -1.25, value = 0.125)
+  seed <- 7L
+  obj <- list(params, NULL, NULL, NULL, seed, NULL)
+  raw <- serialize(obj, connection = NULL, version = 2L)
+  raw <- raw[-seq_len(14L)]
+  expected <- paste0("sha256:", as.character(tools::sha256sum(bytes = raw)))
+  got <- optimix:::.hash_payload(params, NULL, NULL, NULL, seed, NULL)
+  expect_identical(got, expected)
+
+  # The defect this replaces: hashing the unstripped serialize() output makes
+  # the digest depend on the writer's R version. Demonstrate the stripped
+  # recipe is invariant to exactly the bytes that carry that dependency (the
+  # 14-byte header) by re-stamping a synthetic "other R version" into a copy
+  # of the header and confirming the STRIPPED hash is unaffected.
+  raw_full <- serialize(obj, connection = NULL, version = 2L)
+  raw_full_other_version <- raw_full
+  raw_full_other_version[7:10] <- as.raw(c(4, 6, 0, 0))  # pretend R 4.6.0
+  stripped_a <- raw_full[-seq_len(14L)]
+  stripped_b <- raw_full_other_version[-seq_len(14L)]
+  expect_identical(stripped_a, stripped_b)
 })

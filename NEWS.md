@@ -1,3 +1,42 @@
+# optimix (development version)
+
+## Documentation
+
+* **`optimix_map()`'s vignette now shows a map, not just prints one.** *Mapping
+  optima and the orchestra manifest* adds a captioned Himmelblau contour with
+  the four recovered modes overlaid and a sentence reading it, and fixes two
+  passages that referred to output from a Suggests-gated chunk (proxymix's
+  evaluation count, a budget-capped count) as if it always rendered.
+* **The auto-selector evidence is now reported in full.** *The auto selector
+  and racing* states the held-out function names and sample size (`n = 54`
+  instances per budget) behind the headline numbers, and adds the
+  generous-budget success-rate trade-off (`auto` 0.685 against single-best's
+  0.759) that the source study reports but the vignette previously omitted.
+* Fixed a stale NEWS clause under 0.1.0 claiming `digest` as a new dependency
+  for the manifest hash; the released 0.1.0 hash recipe used
+  `tools::sha256sum()`, and `digest` was never added to `Imports`.
+* Minor grammar fixes in *The auto selector and racing* and *Mapping optima
+  and the orchestra manifest*.
+
+## Bug fixes
+
+* **The manifest emitter now implements the federation's reference contract,
+  not a same-shaped foreign look-alike.** The emitted S7 class carried a
+  namespaced name (`optimix::orchestra_manifest`) that no orchestra
+  consumer's `S7_inherits()`/`inherits()` check could ever recognise; the
+  schema version constant had drifted two versions behind the reference
+  (`consume_manifest()` refuses a version mismatch by design); and the
+  payload hash included the serializer's version-varying header, so a
+  manifest verified only under the R version that emitted it. All three are
+  fixed to match the reference implementation field for field.
+* **Every orchestra-facing decline is now a classed condition.** The
+  proxymix engine's "no mode inside the bounds" failure, the honest
+  `goal = "map"` fallback when no map-emitting engine fits, and a
+  non-converged optimum's manifest abstention are now recognisable by the
+  federation's shared `is_orchestra_decline()` predicate from the class
+  vector alone, with no optimix-specific dispatch. What is refused is
+  unchanged; only how the decline is signalled.
+
 # optimix 0.1.0
 
 ## Bug fixes
@@ -108,7 +147,8 @@
   queryable posterior over all optima in `metadata$solution_map`, so a downstream
   consumer always knows point vs posterior (some optimisation needs are outside any
   one engine -- the contract makes that explicit). `verify_manifest()` checks
-  payload integrity; `digest` is a new dependency for the payload hash.
+  payload integrity using the hash recipe described under Dependency floor
+  above.
 * Initial development scaffold. The package provides the unified problem
   contract (`optim_problem()`, `space_box()`, `objective_deterministic()`,
   `objective_noisy()`), the engine registry (`optim_engine()`,
