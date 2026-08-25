@@ -1,5 +1,23 @@
 # optimix (development version)
 
+## Documentation
+
+* **`optimix_map()`'s vignette now shows a map, not just prints one.** *Mapping
+  optima and the orchestra manifest* adds a captioned Himmelblau contour with
+  the four recovered modes overlaid and a sentence reading it, and fixes two
+  passages that referred to output from a Suggests-gated chunk (proxymix's
+  evaluation count, a budget-capped count) as if it always rendered.
+* **The auto-selector evidence is now reported in full.** *The auto selector
+  and racing* states the held-out function names and sample size (`n = 54`
+  instances per budget) behind the headline numbers, and adds the
+  generous-budget success-rate trade-off (`auto` 0.685 against single-best's
+  0.759) that the source study reports but the vignette previously omitted.
+* Fixed a stale NEWS clause under 0.1.0 claiming `digest` as a new dependency
+  for the manifest hash; the released 0.1.0 hash recipe used
+  `tools::sha256sum()`, and `digest` was never added to `Imports`.
+* Minor grammar fixes in *The auto selector and racing* and *Mapping optima
+  and the orchestra manifest*.
+
 ## Bug fixes
 
 * **The manifest emitter now implements the federation's reference contract,
@@ -129,7 +147,8 @@
   queryable posterior over all optima in `metadata$solution_map`, so a downstream
   consumer always knows point vs posterior (some optimisation needs are outside any
   one engine -- the contract makes that explicit). `verify_manifest()` checks
-  payload integrity; `digest` is a new dependency for the payload hash.
+  payload integrity using the hash recipe described under Dependency floor
+  above.
 * Initial development scaffold. The package provides the unified problem
   contract (`optim_problem()`, `space_box()`, `objective_deterministic()`,
   `objective_noisy()`), the engine registry (`optim_engine()`,

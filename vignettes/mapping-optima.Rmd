@@ -14,7 +14,7 @@ library(optimix)
 
 ## When one argmin is not the question
 
-An optimiser usually answers "what is the single best point". On a multimodal
+An optimiser usually answers one question: what is the single best point? On a multimodal
 problem that answer hides information: a design task may have several
 solutions of essentially equal quality, and which one is preferable can
 depend on constraints the objective never saw. The useful answer is then the
@@ -46,6 +46,25 @@ map
 map$source
 ```
 
+```{r map-plot, fig.width = 5, fig.height = 5, fig.cap = "Himmelblau's function has four global minima of equal depth (contour panel, darker shading nearer zero); the four points found by `optimix_map()` sit one in each well, showing the map recovered all of them rather than converging repeatedly on a single optimum."}
+gx <- seq(-6, 6, length.out = 120)
+gy <- seq(-6, 6, length.out = 120)
+gz <- outer(gx, gy, function(x, y) (x^2 + y - 11)^2 + (x + y^2 - 7)^2)
+graphics::filled.contour(
+  gx, gy, gz, color.palette = function(n) grDevices::hcl.colors(n, "YlGnBu", rev = TRUE),
+  plot.axes = {
+    graphics::axis(1); graphics::axis(2)
+    graphics::points(map$modes, pch = 19, col = "firebrick", cex = 1.3)
+  },
+  xlab = "x[1]", ylab = "x[2]"
+)
+```
+
+The four red points fall one in each of the shaded wells, confirming that
+`optimix_map()` returned the full set of equally-good optima rather than the
+same well found four times over -- the outcome a plain argmin search cannot
+show, since it stops at the first optimum it converges to.
+
 The two paths answer the same question in different registers. On the native
 path each optimum is polished by a local search, so the four printed values
 sit at effectively zero and the locations are sharp. On the proxymix path the
@@ -70,10 +89,12 @@ summary(res)
 The fallback is honest. When no map-emitting engine fits the problem --
 proxymix absent, or the dimension beyond its range -- `auto` does not fake a
 map. It returns the single best optimum through the usual rules and says so
-in the provenance, so a consumer can always tell what it received. Note also
-the evaluation count above: the mixture path spends many cheap evaluations
-to map the whole optimum set, so it suits inexpensive objectives, and the
-selector reaches it only when a map is asked for.
+in the provenance, so a consumer can always tell what it received. The
+mixture path itself spends many cheap evaluations to map the whole optimum
+set -- `res$counts` runs well above a single-point search's budget when
+proxymix is installed and the chunk above executes -- so it suits
+inexpensive objectives, and the selector reaches it only when a map is
+asked for.
 
 ## The orchestra manifest
 
