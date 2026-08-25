@@ -28,6 +28,14 @@ test_that("goal = 'map' falls back honestly when no map engine fits the dimensio
   plan <- optimix:::.auto_select(prob, goal = "map")
   expect_false(identical(plan$engine, "proxymix_map"))
   expect_true(grepl("no map-emitting engine", plan$why))
+  # refusal: the fallback is an "assumptions not met" (goal = map cannot be
+  # honoured) outcome, not just a string a caller has to grep. The plan carries
+  # a typed marker, and the *result* optimix() returns is classed so the
+  # federation's is_orchestra_decline() (integration/refusal_contract.R)
+  # recognises it with no optimix-specific code.
+  expect_true(isTRUE(plan$goal_abstained))
+  res <- optimix(prob, method = "auto", goal = "map")
+  expect_true(any(grepl("_abstention$", class(res))))
 })
 
 test_that("map routing is data-driven off the emits_map metadata", {

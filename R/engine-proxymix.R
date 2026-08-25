@@ -64,9 +64,23 @@
   # all-infeasible fit is a clean failure rather than an out-of-box "optimum".
   keep <- .feasible_rows(modes$modes, sp@lower, sp@upper)
   if (!any(keep)) {
-    stop(call. = FALSE, paste(
-      "The proxymix mixture returned no mode inside the bounds;",
-      "use `optimix_map()` or another engine for this problem."
+    # refusal contract: optimix will produce NO result at all here (every
+    # mixture mean fell outside the design box), so this is a genuine
+    # `_refusal`, not an ordinary validation error. Raised as a classed
+    # condition -- `structure(..., class = c("<pkg>_refusal",
+    # "orchestra_refusal", "error", "condition"))` -- so a caller can
+    # `tryCatch` on the specific class, and the orchestra-wide predicate
+    # `is_orchestra_decline()` (integration/refusal_contract.R) recognises it
+    # from `class(e)` with no optimix-specific code.
+    stop(structure(
+      class = c("optimix_refusal", "orchestra_refusal", "error", "condition"),
+      list(
+        message = paste(
+          "The proxymix mixture returned no mode inside the bounds;",
+          "use `optimix_map()` or another engine for this problem."
+        ),
+        call = NULL
+      )
     ))
   }
   best <- as.numeric(modes$modes[which(keep)[1L], ])

@@ -64,6 +64,12 @@ test_that("a non-converged result lifts to an abstaining manifest", {
   # an abstaining manifest still hashes and verifies: abstention is a verdict,
   # not a corruption
   expect_true(verify_manifest(m)$ok)
+  # refusal: a non-converged result is a typed "assumptions not met" object,
+  # not just a boolean buried in `summary$abstained` -- the orchestra-wide
+  # predicate `is_orchestra_decline()` (integration/refusal_contract.R) must
+  # recognise it from the class vector alone, with no optimix-specific code.
+  expect_true(any(grepl("_abstention$", class(m))))
+  expect_true(any(class(m) == "orchestra_manifest"))  # OPT-01 still holds
 })
 
 test_that("verify_manifest rejects a non-manifest input cleanly", {

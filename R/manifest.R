@@ -324,7 +324,7 @@ as_orchestra_manifest.optimix_result <- function(x, ..., run_id = NULL,
     "optimix-", substr(sub("^sha256:", "", dh), 1L, 12L)
   )
 
-  orchestra_manifest(
+  m <- orchestra_manifest(
     manifest_version = MANIFEST_VERSION,
     emitter_package = "optimix",
     emitter_version = ev,
@@ -339,6 +339,20 @@ as_orchestra_manifest.optimix_result <- function(x, ..., run_id = NULL,
     timestamp = Sys.time(),
     data_hash = dh
   )
+
+  # refusal contract: a non-converged optimum is an "assumptions not met"
+  # verdict, already recorded honestly in `summary$abstained` -- but a bare
+  # boolean buried in a slot forces every consumer to know optimix's schema.
+  # Stamping the class lets the orchestra-wide predicate
+  # `is_orchestra_decline()` (integration/refusal_contract.R) recognise the
+  # abstention from `class(m)` alone, with no optimix-specific dispatch, the
+  # same way terroir's and bourse's own refusals are recognised. Prepending
+  # (not replacing) keeps `S7_inherits(m, orchestra_manifest)` true (OPT-01)
+  # and every existing `@`-slot access unaffected.
+  if (!converged) {
+    class(m) <- c("optimix_manifest_abstention", class(m))
+  }
+  m
 }
 
 #' Null-coalescing operator

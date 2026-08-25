@@ -80,7 +80,39 @@ test_that("the proxymix engine's par is always feasible", {
   )
   if (inherits(out, "error")) {
     expect_match(conditionMessage(out), "no mode inside the bounds")
+    # refusal: this is optimix declining to produce a result at all (no
+    # feasible mode), not a generic R error -- the class must carry the
+    # orchestra-wide `_refusal` marker so integration/refusal_contract.R's
+    # is_orchestra_decline() recognises it with no optimix-specific code.
+    expect_s3_class(out, "optimix_refusal")
+    expect_true(any(class(out) == "orchestra_refusal"))
   } else {
     expect_true(all(out$par >= -2 & out$par <= 2))
   }
+})
+
+test_that("OPT refusal: the no-feasible-mode error is a classed refusal condition", {
+  skip_if_not_installed("proxymix")
+  skip_if_not(optimix:::.proxymix_ready(), "installed proxymix lacks the mapper")
+  # Force the all-infeasible branch deterministically by stubbing
+  # gmm_modes() to return a mode far outside the bounds, rather than relying
+  # on a seed that happens to drift every mixture mean out of the box.
+  fake_fit <- structure(list(converged = TRUE), class = "gmm_fit")
+  testthat::local_mocked_bindings(
+    from_objective = function(...) fake_fit,
+    gmm_modes = function(...) list(modes = matrix(c(100, 100), nrow = 1L),
+                                   n = 1L),
+    .package = "proxymix"
+  )
+  prob <- optim_problem(
+    fn = function(x) sum(x^2), space = space_box(c(-2, -2), c(2, 2)), seed = 1
+  )
+  err <- tryCatch(
+    optimix(prob, method = "proxymix_map"),
+    error = function(e) e
+  )
+  expect_s3_class(err, "optimix_refusal")
+  expect_true(any(class(err) == "orchestra_refusal"))
+  expect_true(any(class(err) == "error"))
+  expect_match(conditionMessage(err), "no mode inside the bounds")
 })
