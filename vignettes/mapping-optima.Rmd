@@ -7,21 +7,63 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
+<!-- Render time: ~1 s under rmarkdown::render() with proxymix installed
+     (the premium mixture path is fast on a two-dimensional problem); a
+     build without proxymix still renders every section, falling back to
+     the native multi-start path and the documented goal-abstention text.
+     macOS arm64, R 4.5.1, one core. -->
+
 ```{r setup, include = FALSE}
-knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 7,
+  fig.height = 5.5,
+  dpi = 150
+)
+has_proxymix <- requireNamespace("proxymix", quietly = TRUE)
+has_ggplot2 <- requireNamespace("ggplot2", quietly = TRUE)
+```
+
+```{r library}
 library(optimix)
 ```
 
-## When one argmin is not the question
+## Why
 
-An optimiser usually answers one question: what is the single best point? On a multimodal
-problem that answer hides information: a design task may have several
-solutions of essentially equal quality, and which one is preferable can
-depend on constraints the objective never saw. The useful answer is then the
-whole set of good solutions, and `optimix_map()` returns exactly that.
+A breeder ranking candidate sowing configurations against a cost function
+does not always want the single best combination back. If several
+configurations score within noise of each other, the one to actually plant
+can depend on constraints the cost function never saw -- seed availability,
+rotation history, machinery on hand -- and a plain argmin search shows only
+the first of those configurations it happened to converge to, never the
+rest. The question this vignette answers is: *when a design surface has
+several solutions of essentially equal merit, can optimix hand back all of
+them, state plainly when it cannot, and package the answer for a system
+downstream rather than a person reading a console?*
 
-The classic demonstration is Himmelblau's function, a two-dimensional surface
-with four global minima of equal depth:
+## What
+
+`optimix_map()` returns the distinct optima of a function over a box,
+rather than a single best point. It has a native path (always available,
+local search from many starts, clustered) and a premium path (a calibrated
+Gaussian-mixture map, when a new-enough proxymix is installed), and reports
+which one ran in its `source` field. The same intent reaches the main verb
+through `goal = "map"` on `optimix()`: `auto` then routes to a map-emitting
+engine, or declines and says so plainly when none fits, marking the returned
+`optimix_result` with the `optimix_map_abstention` class so a caller can
+detect the decline without parsing prose. `as_orchestra_manifest()`
+re-expresses any result -- mapped or not -- as an `orchestra_manifest`, the
+federation's shared, hashed, typed hand-off object (contract C2 v2 in
+`ORCHESTRA.md`'s registry); `verify_manifest()` checks that hash.
+
+## Do
+
+### A synthetic surface with four equally good answers
+
+The classic demonstration is a synthetic test surface, Himmelblau's
+function, a two-dimensional cost surface with four global minima of equal
+depth:
 
 ```{r himmelblau-def}
 himmelblau <- function(x) {
@@ -29,15 +71,16 @@ himmelblau <- function(x) {
 }
 ```
 
-## Two paths, one function
+### Two paths, one function
 
-`optimix_map()` has a native path and a premium path, and picks between them
-automatically. The native path is always available: it runs a local search
-from many Latin-hypercube starts and clusters the converged points into
-distinct optima, using nothing beyond base R. When a new-enough proxymix is
-installed, the premium path returns a calibrated Gaussian-mixture map over
-the optima instead -- a queryable posterior, carried in the result's `map`
-field. The result's `source` field reports which path produced it:
+`optimix_map()` has a native path and a premium path, and picks between
+them automatically. The native path is always available: it runs a local
+search from many Latin-hypercube starts and clusters the converged points
+into distinct optima, using nothing beyond base R. When a new-enough
+proxymix is installed, the premium path returns a calibrated
+Gaussian-mixture map over the optima instead -- a queryable posterior,
+carried in the result's `map` field. The result's `source` field reports
+which path produced it:
 
 ```{r map}
 set.seed(11)
@@ -46,67 +89,130 @@ map
 map$source
 ```
 
-```{r map-plot, fig.width = 5, fig.height = 5, fig.cap = "Himmelblau's function has four global minima of equal depth (contour panel, darker shading nearer zero); the four points found by `optimix_map()` sit one in each well, showing the map recovered all of them rather than converging repeatedly on a single optimum."}
-gx <- seq(-6, 6, length.out = 120)
-gy <- seq(-6, 6, length.out = 120)
-gz <- outer(gx, gy, function(x, y) (x^2 + y - 11)^2 + (x + y^2 - 7)^2)
-graphics::filled.contour(
-  gx, gy, gz, color.palette = function(n) grDevices::hcl.colors(n, "YlGnBu", rev = TRUE),
-  plot.axes = {
-    graphics::axis(1); graphics::axis(2)
-    graphics::points(map$modes, pch = 19, col = "firebrick", cex = 1.3)
-  },
-  xlab = "x[1]", ylab = "x[2]"
+```{r map-kable, echo = FALSE}
+modes_tab <- data.frame(
+  rank = seq_len(map$n), x1 = map$modes[, 1L], x2 = map$modes[, 2L],
+  value = map$values
+)
+knitr::kable(
+  modes_tab, digits = 4, row.names = FALSE,
+  caption = paste0(
+    "Every optimum `optimix_map()` recovered (source: ", map$source, ")."
+  )
 )
 ```
 
-The four red points fall one in each of the shaded wells, confirming that
-`optimix_map()` returned the full set of equally-good optima rather than the
-same well found four times over -- the outcome a plain argmin search cannot
-show, since it stops at the first optimum it converges to.
+```{r fig-map, echo = has_ggplot2, eval = has_ggplot2, fig.cap = "Himmelblau's synthetic function, capped at 500 to keep the four wells legible; the points found by optimix_map() are marked in red, best (deepest) first. Four sit in visually identical, fully dark wells; a fifth, shallower point, when the premium path finds one, is set apart by sitting in a lighter band -- exactly the shallow-artefact distinction a single printed value cannot show."}
+gx <- seq(-6, 6, length.out = 120L)
+gy <- seq(-6, 6, length.out = 120L)
+grid_df <- expand.grid(x1 = gx, x2 = gy)
+grid_df$z <- apply(
+  grid_df, 1L, function(row) himmelblau(c(row[["x1"]], row[["x2"]]))
+)
+grid_df$z <- pmin(grid_df$z, 500)
+modes_df <- data.frame(
+  x1 = map$modes[, 1L], x2 = map$modes[, 2L], rank = seq_len(map$n)
+)
+ggplot2::ggplot(grid_df, ggplot2::aes(x1, x2, z = z)) +
+  ggplot2::geom_contour_filled(bins = 14L) +
+  ggplot2::scale_fill_viridis_d(name = "objective\n(capped at 500)",
+                                guide = "none") +
+  ggplot2::geom_point(
+    data = modes_df, ggplot2::aes(x1, x2), inherit.aes = FALSE,
+    colour = "white", fill = "firebrick", shape = 21L, size = 3L, stroke = 1L
+  ) +
+  ggplot2::labs(
+    x = "x1", y = "x2",
+    title = "Himmelblau's synthetic surface: every recovered optimum"
+  ) +
+  ggplot2::theme_minimal() +
+  ggplot2::coord_equal()
+```
 
-The two paths answer the same question in different registers. On the native
-path each optimum is polished by a local search, so the four printed values
-sit at effectively zero and the locations are sharp. On the proxymix path the
-modes are peaks of a fitted mixture -- a summary of where the low-value mass
-lies -- so locations are approximate and a shallow extra mode can appear
-beside the four true wells. The modes are printed best first in either case,
-so deep optima separate from shallow artefacts at a glance, and the `modes`
-and `values` fields give the full set programmatically.
+```{r fig-map-skip, echo = FALSE, eval = !has_ggplot2, results = "asis"}
+cat("ggplot2 is not installed; the contour figure is skipped.\n")
+```
 
-## Asking auto for a map
+The marked points confirm that `optimix_map()` returned a genuine set of
+distinct optima rather than the same well found repeatedly -- the outcome
+a plain argmin search cannot show, since it stops at the first optimum it
+converges to.
+
+The two paths answer the same question in different registers. On the
+native path each optimum is polished by a local search, so the printed
+values sit at effectively zero and the locations are sharp. On the
+proxymix path the modes are peaks of a fitted mixture -- a summary of
+where the low-value mass lies -- so locations are approximate and a
+shallow extra mode can appear beside the true wells. The modes are printed
+best first in either case, so deep optima separate from shallow artefacts
+at a glance, and the `modes` and `values` fields give the full set
+programmatically.
+
+### Asking auto for a map
 
 The same intent can be declared on the main verb. `goal = "map"` steers
 `method = "auto"` towards a map-emitting engine, and the result carries the
 queryable mixture in `$map`:
 
-```{r goal-map, eval = requireNamespace("proxymix", quietly = TRUE)}
+```{r goal-map, eval = has_proxymix, echo = has_proxymix}
 set.seed(12)
 res <- optimix(himmelblau, lower = c(-6, -6), upper = c(6, 6), goal = "map")
 summary(res)
 ```
 
-The fallback is honest. When no map-emitting engine fits the problem --
-proxymix absent, or the dimension beyond its range -- `auto` does not fake a
-map. It returns the single best optimum through the usual rules and says so
-in the provenance, so a consumer can always tell what it received. The
-mixture path itself spends many cheap evaluations to map the whole optimum
-set -- `res$counts` runs well above a single-point search's budget when
-proxymix is installed and the chunk above executes -- so it suits
+```{r goal-map-skip, eval = !has_proxymix, echo = FALSE, results = "asis"}
+cat("proxymix is not installed on this build, so this chunk is not run;",
+    "the fallback described below is what auto does in exactly this",
+    "situation.\n")
+```
+
+The mixture path itself spends many cheap evaluations to map the whole
+optimum set -- `res$counts` runs well above a single-point search's budget
+when proxymix is installed and the chunk above executes -- so it suits
 inexpensive objectives, and the selector reaches it only when a map is
 asked for.
 
-## The orchestra manifest
+### When the map cannot be honoured
 
-An optimisation result often feeds a downstream system rather than a person,
-and `as_orchestra_manifest()` re-expresses a result as a typed hand-off
-contract for that purpose. The optimum rides in `params` as a one-row table.
-The typed summary and metadata carry the engine, the convergence verdict,
-and the true evaluation count. The `uncertainty_available` flag records
-whether the manifest carries a posterior over the optimum (a mixture map) or
-a bare point estimate, so a consumer never mistakes one for the other. The
-payload is integrity-hashed at emission, and `verify_manifest()` recomputes
-the hash to detect any later modification:
+The fallback does not fabricate a map, and it is worth seeing happen
+rather than taking on trust. `proxymix_map` is registered for problems of dimension 10 or
+fewer; a 12-dimensional request for `goal = "map"` is therefore outside
+its range whether or not proxymix is installed, so `auto` cannot honour it
+and falls back to the single best optimum instead of fabricating a map:
+
+```{r abstention}
+set.seed(7)
+res_abstain <- optimix(
+  function(x) sum((x - 0.4)^2), lower = rep(-3, 12L), upper = rep(3, 12L),
+  goal = "map"
+)
+class(res_abstain)
+inherits(res_abstain, "optimix_map_abstention")
+res_abstain$provenance$engine
+res_abstain$provenance$why
+```
+
+`optimix_map_abstention` is prepended to the result's class vector rather
+than replacing it, so every ordinary `optimix_result` method still applies,
+and a caller who only wants to know whether the request was honoured can
+check `inherits(x, "optimix_map_abstention")` without parsing the `why`
+string. The same prepend-not-replace convention marks a non-converged
+optimum's manifest with `optimix_manifest_abstention`, so both declines are
+recognisable from the class vector alone.
+
+### The orchestra manifest
+
+An optimisation result often feeds a downstream system rather than a
+person, and `as_orchestra_manifest()` re-expresses a result as a typed
+hand-off contract for that purpose -- the C2 v2 generic `orchestra_manifest`
+in `ORCHESTRA.md`'s contract registry. The optimum rides in `params` as a
+one-row table. The typed summary and metadata carry the engine, the
+convergence verdict, and the true evaluation count. The
+`uncertainty_available` flag records whether the manifest carries a
+posterior over the optimum (a mixture map) or a bare point estimate, so a
+consumer never mistakes one for the other. The payload is
+integrity-hashed at emission, and `verify_manifest()` recomputes the hash
+to detect any later modification:
 
 ```{r manifest}
 best <- optimix(himmelblau, lower = c(-6, -6), upper = c(6, 6),
@@ -119,6 +225,103 @@ verify_manifest(m)
 ```
 
 Here a single-point engine produced the result, so the flag is `FALSE` and
-the manifest honestly offers a point estimate only. Had the proxymix mixture
-engine run, the flag would be `TRUE` and the metadata would carry the full
-solution map alongside the optimum.
+the manifest offers only a point estimate, with no invented uncertainty.
+Had the proxymix
+mixture engine run, the flag would be `TRUE` and the metadata would carry
+the full solution map alongside the optimum.
+
+## Read
+
+```{r read-prep, echo = FALSE}
+class_str <- paste(class(res_abstain), collapse = ", ")
+proxymix_para <- if (has_proxymix) {
+  paste0(
+    "With proxymix installed, asking `auto` for a map directly reaches `",
+    res$provenance$engine, "` and spends ", res$counts[["function"]],
+    " evaluations mapping the whole optimum set, an order of magnitude ",
+    "above a single-point search's typical budget -- the price paid for ",
+    "a posterior over every optimum rather than one point."
+  )
+} else {
+  paste0(
+    "proxymix is not installed on this build, so the direct ",
+    "`goal = \"map\"` request above did not run; the fallback text ",
+    "below is what replaced it either way, on a problem outside the ",
+    "mixture engine's range."
+  )
+}
+```
+
+```{r read-text, echo = FALSE, results = "asis"}
+cat(
+  "Native or premium, `optimix_map()` recovered ", map$n, " optima on ",
+  "this run, reported through the result's `source` field as \"",
+  map$source, "\". The table lists every one of them; the figure shows ",
+  "why the count alone is not the full picture -- whichever points sit ",
+  "in a genuinely dark well are the deep, essentially tied optima, and ",
+  "any point in a lighter band beside them is a shallow artefact of the ",
+  "fitting procedure rather than a fifth true minimum.\n\n",
+  sep = ""
+)
+cat(proxymix_para, "\n\n", sep = "")
+cat(
+  "The 12-dimensional request makes the fallback concrete rather than ",
+  "descriptive: its class carries ", class_str, ", confirming ",
+  "`optimix_map_abstention` sits first, and its provenance names the ",
+  "engine that actually ran (`", res_abstain$provenance$engine,
+  "`) and the reason the map itself was declined. The manifest section ",
+  "closes the loop from either path to a downstream consumer: ",
+  "`m@summary$headline` reads \"", m@summary$headline, "\", ",
+  "`verify_manifest(m)$ok` is ", verify_manifest(m)$ok, ", and ",
+  "`metadata$uncertainty_available` is ", m@metadata$uncertainty_available,
+  " because `base_optim` produced this particular manifest -- a point, ",
+  "correctly labelled as one.\n",
+  sep = ""
+)
+```
+
+A package-level routing study compared optimix's engines against
+proxymix's `from_objective()` mapper across seven case-classes on
+functions with known analytic optima, independent of both packages
+(`comparisons/from_objective/`, ORCHESTRA_dev, 2026-06-24); its tally is
+cited here and not recomputed. optimix won five of the seven classes --
+every regime with a single best point to find, smooth or multimodal,
+low-dimensional or high -- and proxymix won two: recovering every optimum
+of a multimodal surface in one fit, and returning a genuine posterior over
+the optimum set. That is exactly the split this vignette walks: reach for
+`optimix_map()` when the deliverable is the whole set with a queryable
+map, and for plain `optimix()` when it is the single best point.
+
+## Limits
+
+Himmelblau's function is a synthetic two-dimensional textbook surface with
+four exactly equal minima; it is chosen because the ground truth is known,
+not because it resembles a fielded design problem, and nothing here
+demonstrates how many equally good optima a real cost surface tends to
+carry. The premium path's mode locations are read off a fitted mixture, not
+polished by a further local search, so their precision is lower than the
+native path's; this vignette does not quantify that gap numerically; a
+reader who needs an error bound on a proxymix-reported location should
+treat it as approximate. The 12-dimensional abstention example is chosen
+to guarantee the decline deterministically, regardless of whether proxymix
+is installed; it does not explore the boundary case of a problem just
+inside the mixture engine's dimension range, where the map may still
+degrade gracefully rather than abstain outright.
+
+## What to read next
+
+*Getting started with optimix* covers the two front doors and the result
+object this vignette builds on. *The auto selector and racing* covers the
+rest of the selector's decision surface -- noise, expense, budget -- that
+`goal = "map"` sits alongside. *Combinatorial optimisation and delta
+evaluation* covers the one design space neither mapping nor racing
+reaches: permutations.
+
+## Reproduce
+
+Seed `11` for the map, `12` for the `goal = "map"` call, `7` for the
+12-dimensional abstention example.
+
+```{r session-info}
+sessionInfo()
+```
