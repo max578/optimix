@@ -7,15 +7,64 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
+<!-- Render time: ~1 s under rmarkdown::render() with cmaes, DEoptim,
+     DEoptimR, dfoptim, DiceKriging, GenSA, nloptr and proxymix all
+     installed; a build with none of those still renders every chunk here,
+     because this vignette never needs an optional engine by name. macOS
+     arm64, R 4.5.1, one core. -->
+
 ```{r setup, include = FALSE}
-knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 7,
+  fig.height = 4.5,
+  dpi = 150
+)
+has_ggplot2 <- requireNamespace("ggplot2", quietly = TRUE)
+```
+
+```{r library}
 library(optimix)
 ```
 
-## One verb
+## Why
 
-`optimix` exposes a single verb. The easy path takes a function and box
-bounds, in the spirit of `stats::optim()`:
+An agronomist has written a cost function over two decision variables --
+say a nitrogen rate and a sowing density -- and wants the combination that
+minimises it under a fixed number of trial runs. She does not know, before
+she starts, whether that cost surface is a smooth bowl, has a ripple hiding
+a second dip, or is something else entirely, and she does not want to
+choose a different optimisation package for every shape she might meet.
+`optimix` is built for exactly that: one call that takes a function and a
+box, and returns the best point it can find within the budget, whatever the
+surface turns out to be. This vignette walks the whole surface of the
+package -- both front doors, the result it hands back, and what the
+optimiser actually found -- and closes by showing that optimum sitting
+inside the landscape it was found in.
+
+## What
+
+`optimix()` is the single verb: it takes an objective function (or an
+`optim_problem()`) and a design space, chooses or uses a named optimiser,
+and returns an `optimix_result`. `optim_problem()` is the typed contract
+behind it -- fn, `space` (typically a `space_box()`), an optional evaluation
+budget, warm start and seed -- and is what the easy path builds internally
+from `fn`, `lower` and `upper`. `list_optimisers()` reports the registry of
+engines optimix knows about, which of their backend packages are installed,
+and the traits (`global`, `noise_tolerant`, `emits_map`) the selector reads.
+The result behaves like a `stats::optim()` return value, with `coef()`,
+`as.data.frame()` and `as_optim()` as read-outs for code that expects
+exactly that shape.
+
+## Do
+
+### The easy path
+
+The easy path takes a function and box bounds, in the spirit of
+`stats::optim()`. The objective below is a synthetic quadratic bowl centred
+on the origin, and `method = "base_optim"` names the zero-dependency core
+engine directly, so this chunk needs nothing beyond base R:
 
 ```{r easy}
 result <- optimix(
@@ -29,21 +78,33 @@ result
 
 `minimise()` and `maximise()` are readable aliases for the same call.
 
-## Choosing the optimiser
+### Which optimisers are available
 
 With the default `method = "auto"`, optimix selects an optimiser for the
-problem from those whose package is installed, and records the choice in the
-result's provenance. `list_optimisers()` shows what is available:
+problem from those whose package is installed, and records the choice in
+the result's provenance. `list_optimisers()` shows what is available on
+this build:
 
 ```{r registry}
-list_optimisers()
+lo <- list_optimisers()
+lo
 ```
 
-## An `optim()`-compatible result
+```{r registry-kable, echo = FALSE}
+knitr::kable(
+  lo, row.names = FALSE,
+  caption = paste0(
+    "The optimix engine registry on this build (", sum(lo$installed),
+    " of ", nrow(lo), " engines installed)."
+  )
+)
+```
 
-The result is shaped like a `stats::optim()` return value -- `par`, `value`,
-`counts`, `convergence`, `message` -- so existing code keeps working, with
-optimix extras alongside. The usual accessors apply:
+### An `optim()`-compatible result
+
+The result is shaped like a `stats::optim()` return value -- `par`,
+`value`, `counts`, `convergence`, `message` -- so existing code keeps
+working, with optimix extras alongside. The usual accessors apply:
 
 ```{r accessors}
 coef(result)
@@ -51,10 +112,11 @@ as.data.frame(result)
 as_optim(result)
 ```
 
-## The power path
+### The power path
 
 For noise, an evaluation budget, a warm start, or a seed, build an
-`optim_problem()` directly and pass it to `optimix()`:
+`optim_problem()` directly and pass it to `optimix()`. The objective below
+is a synthetic bowl shifted to `(1, 1)`, capped at 2000 evaluations:
 
 ```{r power}
 problem <- optim_problem(
@@ -62,8 +124,119 @@ problem <- optim_problem(
   space = space_box(lower = c(-5, -5), upper = c(5, 5)),
   max_evals = 2000
 )
-optimix(problem, method = "base_optim")
+power_result <- optimix(problem, method = "base_optim")
+power_result
 ```
 
-The same problem object is what the easy path builds for you behind the
-scenes -- one contract, two front doors.
+The same problem object is what the easy path builds behind the scenes --
+one contract, two front doors.
+
+### A figure: where the optimum sits in the landscape
+
+None of the results above shows what the objective actually looks like
+around the point that was returned. The synthetic surface below is a bowl
+centred near `(2, -1.5)` with a small sinusoidal ripple layered on top, so
+it is not quite the clean quadratic of the two examples above; `method =
+"auto"` is left to choose the engine, exactly as a first-time user would
+call it:
+
+```{r auto-optimum}
+set.seed(9)
+rippled_bowl <- function(x) {
+  sum((x - c(2, -1.5))^2) + 0.4 * sin(3 * x[1]) * cos(2 * x[2])
+}
+auto_result <- optimix(
+  rippled_bowl, lower = c(-5, -5), upper = c(5, 5), method = "auto"
+)
+auto_result
+auto_result$provenance$engine
+```
+
+```{r fig-landscape, echo = has_ggplot2, eval = has_ggplot2, fig.cap = "The rippled synthetic bowl over its full search box, with the optimum optimix found marked in red. The ripple bends the contours away from a perfect ellipse without moving the deepest point far from the unperturbed bowl's centre."}
+gx <- seq(-5, 5, length.out = 100L)
+gy <- seq(-5, 5, length.out = 100L)
+grid_df <- expand.grid(x1 = gx, x2 = gy)
+grid_df$z <- apply(
+  grid_df, 1L, function(row) rippled_bowl(c(row[["x1"]], row[["x2"]]))
+)
+opt_df <- data.frame(x1 = auto_result$par[1L], x2 = auto_result$par[2L])
+ggplot2::ggplot(grid_df, ggplot2::aes(x1, x2, z = z)) +
+  ggplot2::geom_contour_filled(bins = 12L) +
+  ggplot2::scale_fill_viridis_d(name = "cost", guide = "none") +
+  ggplot2::geom_point(
+    data = opt_df, ggplot2::aes(x1, x2), inherit.aes = FALSE,
+    colour = "white", fill = "firebrick", shape = 21L, size = 3L, stroke = 1L
+  ) +
+  ggplot2::labs(
+    x = "x1 (nitrogen-rate-style decision variable)",
+    y = "x2 (sowing-density-style decision variable)",
+    title = "Where the returned optimum sits in the full landscape"
+  ) +
+  ggplot2::theme_minimal()
+```
+
+```{r fig-landscape-skip, echo = FALSE, eval = !has_ggplot2, results = "asis"}
+cat("ggplot2 is not installed; the landscape figure is skipped.\n")
+```
+
+## Read
+
+The easy-path bowl is solved exactly: `optimix()` returns a value of
+`r round(result$value, 6)` at par = (`r paste(result$par, collapse = ", ")`),
+using `r result$counts[["function"]]` evaluations of the zero-dependency
+`base_optim` engine. The registry carries `r nrow(lo)` named optimisers, of
+which `r sum(lo$installed)` are installed and available on this build --
+every engine behind a `Suggests` package plus the base engine and the
+permutation annealer, since every optional package checked in the DESCRIPTION
+happens to be present here. The accessors read the same result three ways:
+`coef()` returns the bare parameter vector, `as.data.frame()` adds the
+objective value and the engine name as columns, and `as_optim()` strips the
+result back down to the five components a `stats::optim()`-based caller
+expects. The power-path bowl, shifted to `(1, 1)`, is also solved exactly,
+in `r power_result$counts[["function"]]` evaluations against its 2000-call
+budget -- the budget is a ceiling the engine did not need to spend.
+
+The rippled bowl is where a single number stops being enough. `method =
+"auto"` chose `r auto_result$provenance$engine` for it, reaching a value of
+`r round(auto_result$value, 4)` at
+par = (`r paste(round(auto_result$par, 3), collapse = ", ")`).
+Read on its own, that pair of numbers says nothing about how close the
+ripple came to hiding a second, competing dip nearby, or how far the
+optimum sits from the edges of the search box. The figure answers both at
+a glance: the returned point sits inside the deepest contour band, close to
+the unperturbed bowl's centre at `(2, -1.5)`, and the ripple bends the bands
+without creating a second dark region the optimum could have missed.
+
+## Limits
+
+This vignette runs one call per example and reads its result in isolation;
+it does not compare engines against each other, examine why `method =
+"auto"` chose one engine over another, or characterise a budget's effect on
+solution quality -- *The auto selector and racing* does both. It also stays
+in two dimensions, in a continuous box, with a single global optimum in
+each example: `optimix_map()` for a surface with several equally good
+optima, and `space_permutation()` for search over orderings rather than
+real-valued points, are both left to their own vignettes. Nothing here
+demonstrates that a chosen engine failed to converge, or shows the classed
+abstention a caller can check for when it did; that machinery is exercised
+directly in *Mapping optima and the orchestra manifest*.
+
+## What to read next
+
+*The auto selector and racing* explains the rules and the race behind
+`method = "auto"`, states the held-out evidence for when it wins, and
+introduces the provenance fields this vignette only prints in passing.
+*Mapping optima and the orchestra manifest* answers "what if there is more
+than one good answer", and shows the typed abstention a caller receives
+when a request cannot be honoured. *Combinatorial optimisation and delta
+evaluation* moves from real-valued boxes to orderings, for scheduling- and
+assignment-shaped problems.
+
+## Reproduce
+
+Seed `9` for the rippled-bowl figure; the two quadratic-bowl examples are
+deterministic and draw no random numbers.
+
+```{r session-info}
+sessionInfo()
+```

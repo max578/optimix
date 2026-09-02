@@ -7,21 +7,58 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
+<!-- Render time: ~2 s under rmarkdown::render() with GenSA, cmaes and
+     nloptr all installed (the race-sweep figure re-runs three engines
+     across six budgets); a build missing one of the three still renders
+     every section, with the gated ones replaced by a skip sentence.
+     macOS arm64, R 4.5.1, one core. -->
+
 ```{r setup, include = FALSE}
-knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 7,
+  fig.height = 4.5,
+  dpi = 150
+)
+```
+
+```{r library}
 library(optimix)
 ```
 
-## Why per-instance selection
+## Why
 
-No optimiser wins everywhere. Rice framed this in 1976 as the
+An agronomist running the same nitrogen-response cost surface across dozens
+of trial sites does not want to hand-pick a different optimiser for each
+site, and she does not want to trust a single fixed choice either, because
+no optimiser wins everywhere. Rice framed this in 1976 as the
 algorithm-selection problem: pick, per problem instance, the portfolio
-member that will perform best. `method = "auto"` is the optimix answer.
-It reads what the problem declares (design space, noise, expense, budget),
-commits to an engine, and records the decision in the result.
+member that will perform best. `method = "auto"` is the optimix answer. It
+reads what the problem declares (design space, noise, expense, budget),
+commits to an engine, and records the decision in the result, so the
+agronomist gets one call that works out, site by site, which optimiser to
+trust, and a written reason she can check.
 
-The examples below use a shifted multimodal test function, a Rastrigin-style
-surface whose global minimum sits at 1.3 in each coordinate:
+## What
+
+`.auto_select()` (reached through `method = "auto"`, optimix's default)
+runs in two tiers. Tier 1 is a transparent rule read straight off what the
+problem declares -- no extra evaluations spent. Tier 3 escalates to racing:
+a short trial for each installed candidate engine, then the remaining
+budget committed to the trial leader. Every result carries a `provenance`
+list recording the `engine` that ran, `why` it was chosen, and which `tier`
+decided; a raced result additionally keeps the trial scores in
+`provenance$race`. `method = "race"` reaches the same racing machinery
+directly, skipping the tier-1 deliberation.
+
+## Do
+
+### The objective
+
+The examples below use a shifted multimodal test function, a synthetic
+Rastrigin-style surface whose global minimum sits at 1.3 in each
+coordinate:
 
 ```{r objective}
 shifted <- function(x) {
@@ -30,39 +67,63 @@ shifted <- function(x) {
 }
 ```
 
-## Tier 1: the rules
+### Engines available on this build
+
+Three sections below need an optional engine each, or a pair of them:
+`GenSA` for the noisy-objective rule and every race, `cmaes` alongside it
+for racing specifically, and `nloptr` (for `nloptr_bobyqa`) for the
+budget-sweep figure. Each guarded chunk checks for what it needs and prints
+one sentence in its place when an engine is missing.
+
+```{r engines}
+has_gensa <- requireNamespace("GenSA", quietly = TRUE)
+has_cmaes <- requireNamespace("cmaes", quietly = TRUE)
+has_nloptr <- requireNamespace("nloptr", quietly = TRUE)
+has_ggplot2 <- requireNamespace("ggplot2", quietly = TRUE)
+race_ok <- has_gensa && has_cmaes
+sweep_ok <- race_ok && has_nloptr && has_ggplot2
+```
+
+### Tier 1: the rules
 
 When the problem's declaration already determines a good choice, `auto`
 applies a transparent rule and spends no evaluations on selection. A noisy
-objective goes to a noise-tolerant global engine. An expensive objective goes
-to Bayesian optimisation, which spends few true evaluations. A permutation
-design space goes to the native simulated annealer, described in
-*Combinatorial optimisation and delta evaluation*. And a small budget stays
-with the rules, because probing the landscape would eat too much of it. A
-noisy objective also never races -- ranking engines on one short noisy trial
-each would rank them on luck -- so its rule commits directly:
+objective goes to a noise-tolerant global engine. An expensive objective
+goes to Bayesian optimisation, which spends few true evaluations. A
+permutation design space goes to the native simulated annealer, described
+in *Combinatorial optimisation and delta evaluation*. And a small budget
+stays with the rules, because probing the landscape would eat too much of
+it. A noisy objective also never races -- ranking engines on one short
+noisy trial each would rank them on luck -- so its rule commits directly:
 
-```{r tier1-noisy, eval = requireNamespace("GenSA", quietly = TRUE)}
+```{r tier1-noisy, eval = has_gensa, echo = has_gensa}
 noisy_prob <- optim_problem(
   fn = function(x) sum(x^2) + rnorm(1, sd = 0.05),
   space = space_box(lower = c(-3, -3), upper = c(3, 3)),
   objective = objective_noisy(sd = 0.05),
   max_evals = 500, seed = 42
 )
-optimix(noisy_prob)$provenance[c("engine", "why", "tier")]
+res_noisy <- optimix(noisy_prob)
+res_noisy$provenance[c("engine", "why", "tier")]
 ```
 
-## Tier 3: racing
+```{r tier1-noisy-skip, eval = !has_gensa, echo = FALSE, results = "asis"}
+cat("GenSA is not installed, so the noisy-objective rule is not run here;",
+    "the rule itself (route to a noise-tolerant global engine, never a",
+    "race) does not depend on which engine ends up installed.\n")
+```
+
+### Tier 3: racing
 
 For a deterministic objective with an ample budget, `auto` escalates from
 rules to evidence. It samples the landscape once with a Latin-hypercube
 design, gives each installed candidate engine a short trial from the best
-sampled point as a shared warm start, and commits the remaining budget to the
-trial leader, warm-started from the leader's own best. The landscape sample
-and every trial evaluation are charged against the budget, and the final run
-receives only what is left.
+sampled point as a shared warm start, and commits the remaining budget to
+the trial leader, warm-started from the leader's own best. The landscape
+sample and every trial evaluation are charged against the budget, and the
+final run receives only what is left.
 
-```{r auto-race, eval = requireNamespace("GenSA", quietly = TRUE) && requireNamespace("cmaes", quietly = TRUE)}
+```{r auto-race, eval = race_ok, echo = race_ok}
 set.seed(1)
 res <- optimix(shifted, lower = c(-5, -5), upper = c(5, 5))
 res
@@ -70,34 +131,44 @@ res$provenance[c("engine", "tier", "why")]
 res$provenance$race
 ```
 
+```{r auto-race-skip, eval = !race_ok, echo = FALSE, results = "asis"}
+cat("Racing needs both GenSA and cmaes installed; at least one is missing",
+    "here, so this race is not run.\n")
+```
+
 The provenance is how a result explains itself: the engine that ran
 (`engine`), why it was chosen (`why`), and which tier decided (`tier` is 1
 for a rule and 3 for a race). A raced result also keeps the trial scores.
 
-## Asking for a race directly
+### Asking for a race directly
 
 `method = "race"` skips the deliberation and races the installed global
 engines immediately. It needs a continuous box space and at least two
 installed candidates:
 
-```{r explicit-race, eval = requireNamespace("GenSA", quietly = TRUE) && requireNamespace("cmaes", quietly = TRUE)}
+```{r explicit-race, eval = race_ok, echo = race_ok}
 set.seed(2)
 raced <- optimix(shifted, lower = c(-5, -5), upper = c(5, 5),
                  method = "race")
 raced$provenance$why
 ```
 
-## Budgets are respected
+```{r explicit-race-skip, eval = !race_ok, echo = FALSE, results = "asis"}
+cat("The same two engines are needed for an explicit race; this chunk is",
+    "not run without both installed.\n")
+```
+
+### Budgets are respected
 
 `max_evals` caps the true objective evaluations -- a soft cap, since an
 engine may finish the internal step it is in -- and the reported count is
-the honest total across every stage of the search. A budget of 200 is too
+the true total across every stage of the search. A budget of 200 is too
 small for a race here (the landscape sample alone would cost a quarter of
 it), so `auto` stays with the tier-1 rule; when the chunk below executes,
 `capped$counts[["function"]]` sits at or just above 200, confirming the cap
 was honoured rather than silently overrun:
 
-```{r budget-cap, eval = requireNamespace("GenSA", quietly = TRUE)}
+```{r budget-cap, eval = has_gensa, echo = has_gensa}
 set.seed(3)
 capped <- optimix(shifted, lower = c(-5, -5), upper = c(5, 5),
                   max_evals = 200)
@@ -105,26 +176,217 @@ capped$provenance$tier
 capped$counts[["function"]]
 ```
 
-## The evidence
+```{r budget-cap-skip, eval = !has_gensa, echo = FALSE, results = "asis"}
+cat("This budget-cap check needs GenSA installed; it is not run here.\n")
+```
+
+### Why the race commits to a leader
+
+A single race, run once, shows which engine won; it does not show how the
+three race candidates behave as the budget grows, which is the reason the
+tier-3 rule commits the *remaining* budget to the trial leader rather than
+splitting it evenly. The sweep below re-solves the same shifted surface
+with each of `gensa`, `cmaes`, and `nloptr_bobyqa` directly, at six budgets
+from 30 to 1000 evaluations, and records the best value each reaches:
+
+```{r race-sweep, eval = sweep_ok, echo = sweep_ok}
+sweep_budgets <- c(30L, 60L, 120L, 250L, 500L, 1000L)
+sweep_engines <- c("gensa", "cmaes", "nloptr_bobyqa")
+sweep_grid <- expand.grid(
+  engine = sweep_engines, budget = sweep_budgets, stringsAsFactors = FALSE
+)
+s1 <- nrow(sweep_grid)
+sweep_rows <- vector("list", s1)
+for (i1 in seq_len(s1)) {
+  prob_i <- optim_problem(
+    fn = shifted, space = space_box(lower = c(-5, -5), upper = c(5, 5)),
+    max_evals = sweep_grid$budget[i1], seed = 5
+  )
+  res_i <- optimix(prob_i, method = sweep_grid$engine[i1])
+  sweep_rows[[i1]] <- data.frame(
+    engine = sweep_grid$engine[i1], budget = sweep_grid$budget[i1],
+    value = res_i$value, evals = res_i$counts[["function"]]
+  )
+} # ends i1, over the engine x budget grid
+sweep_df <- do.call(rbind, sweep_rows)
+sweep_df
+```
+
+```{r race-sweep-kable, echo = FALSE, eval = sweep_ok}
+final_df <- sweep_df[sweep_df$budget == max(sweep_budgets), ]
+knitr::kable(
+  final_df[, c("engine", "budget", "value", "evals")],
+  digits = 4, row.names = FALSE,
+  caption = paste0(
+    "Best value each engine reaches by the largest budget in the sweep (",
+    max(sweep_budgets), " evaluations)."
+  )
+)
+```
+
+```{r fig-race-sweep, echo = sweep_ok, eval = sweep_ok, fig.cap = "Best value found against the true evaluation budget, for the three engines the tier-3 race chooses between. nloptr_bobyqa (a local search) settles early and stops improving regardless of budget; cmaes and gensa keep improving as the budget grows, with gensa reaching the global optimum by budget 500. This is what a single race's trial-then-commit step is racing for."}
+ggplot2::ggplot(
+  sweep_df, ggplot2::aes(x = evals, y = value, colour = engine)
+) +
+  ggplot2::geom_line() +
+  ggplot2::geom_point(size = 2) +
+  ggplot2::scale_colour_viridis_d(name = "engine") +
+  ggplot2::labs(
+    x = "true objective evaluations",
+    y = "best value found",
+    title = "Convergence of the three raced engines, by budget"
+  ) +
+  ggplot2::theme_minimal()
+```
+
+```{r race-sweep-skip, eval = !sweep_ok, echo = FALSE, results = "asis"}
+cat("The budget sweep needs GenSA, cmaes and nloptr all installed, plus",
+    "ggplot2 for the figure; at least one is missing here, so this",
+    "section is not run.\n")
+```
+
+### The evidence
 
 The comparison is against `zakharov`, `salomon`, and `bohachevsky` -- three
-functions held out from the rules `auto` was designed against -- each run at
-3 dimensions x 6 seeds x 2 budgets (n = 54 instances per budget). On this
-held-out set `auto` beat the best fixed single engine (`gensa`) where it
-matters most: at a constrained budget of 300 evaluations per dimension it
-solved more instances (success 0.63 against 0.56) at better median quality
-and lower cost. At a generous budget of 1000 evaluations per dimension it
-matched the single-best engine's quality (an equal-or-tighter median gap)
-with about forty per cent fewer evaluations, but its success rate trails
-single-best's at that budget (0.685 against 0.759) -- racing spends part of
-the budget on trials that a strong single global would have spent solving,
-which costs a little when nearly every instance already favours that one
-engine. The efficiency win is real; the generous-budget success rate is the
-honest price of it.
+functions held out from the rules `auto` was designed against -- each run
+at 3 dimensions x 6 seeds x 2 budgets (n = 54 instances per budget). These
+figures come from the package's own tier-2/tier-3 held-out validation
+study and are not recomputed in this vignette. On that held-out set `auto`
+beat the best fixed single engine (`gensa`) where it matters most: at a
+constrained budget of 300 evaluations per dimension it solved more
+instances (success 0.63 against 0.56) at better median quality and lower
+cost. At a generous budget of 1000 evaluations per dimension it matched the
+single-best engine's quality (an equal-or-tighter median gap) with about
+forty per cent fewer evaluations, but its success rate trails single-best's
+at that budget (0.685 against 0.759) -- racing spends part of the budget on
+trials that a strong single global would have spent solving, which costs a
+little when nearly every instance already favours that one engine. The
+efficiency win is real; the generous-budget success rate is the price
+paid for it.
 
-A feature-based shortcut -- route problems that look smooth to a cheap local
-solver -- was prototyped and rejected on the same held-out evidence: one
-function is multimodal yet looks perfectly quadratic to a coarse sample (a
-bowl hiding a cosine ripple), so no feature threshold routes it safely.
-Racing is feature-free, resolving such cases by actually trying the engines,
-and that is why the escalation is a race rather than a landscape heuristic.
+A feature-based shortcut -- route problems that look smooth to a cheap
+local solver -- was prototyped and rejected on the same held-out evidence:
+one function is multimodal yet looks perfectly quadratic to a coarse
+sample (a bowl hiding a cosine ripple), so no feature threshold routes it
+safely. Racing is feature-free, resolving such cases by actually trying
+the engines, and that is why the escalation is a race rather than a
+landscape heuristic.
+
+## Read
+
+```{r read-text, echo = FALSE, results = "asis"}
+if (has_gensa) {
+  cat(
+    "The noisy-objective rule commits to",
+    paste0("`", res_noisy$provenance$engine, "`"),
+    "at tier", res_noisy$provenance$tier, "with no race, matching the",
+    "stated rule: a noisy objective is never raced.\n\n"
+  )
+} else {
+  cat(
+    "GenSA is not installed on this build, so the noisy-objective rule is",
+    "not exercised above; the paragraphs below cover only what did run.\n\n"
+  )
+}
+if (race_ok) {
+  trial_score <- round(unname(res$provenance$race[res$provenance$engine]), 6)
+  final_score <- round(res$value, 6)
+  commit_sentence <- if (trial_score - final_score > 1e-6) {
+    paste(
+      "the remainder of the budget bought a materially better answer",
+      "than the trial alone found."
+    )
+  } else {
+    paste(
+      "on this instance the short trial alone had already located the",
+      "exact optimum, so the remaining budget confirmed rather than",
+      "improved that answer -- not every race needs its commit step to",
+      "do further work."
+    )
+  }
+  cat(
+    "On the deterministic shifted surface, the tier-3 race commits to",
+    paste0("`", res$provenance$engine, "`"),
+    paste0("(tier ", res$provenance$tier, "),"),
+    "reaching a value of", final_score, "against a trial score",
+    "of", trial_score, "for that same engine's own short trial --",
+    commit_sentence,
+    "The explicit race (`method = \"race\"`) reasons the same way:",
+    paste0("`", raced$provenance$why, "`."),
+    "At a budget of 200, too small for a race, `auto` stays with the",
+    paste0("tier-1 rule (tier ", capped$provenance$tier, "), and"),
+    capped$counts[["function"]], "evaluations were spent against that cap",
+    "-- at or just above 200, confirming the budget was honoured rather",
+    "than silently overrun.\n\n"
+  )
+} else {
+  cat(
+    "GenSA and cmaes are not both installed on this build, so no race",
+    "runs above; the tier-3 mechanics described in *What* are unexercised",
+    "here.\n\n"
+  )
+}
+if (sweep_ok) {
+  fastest_to_global <- sweep_df[
+    sweep_df$engine == "gensa" & sweep_df$value < 1e-6, "budget"
+  ]
+  bobyqa_evals <- unique(
+    sweep_df[sweep_df$engine == "nloptr_bobyqa", "evals"]
+  )
+  cat(
+    "The sweep makes the reason for that commit-to-the-leader design",
+    "visible: `nloptr_bobyqa` stops improving once its own local search",
+    "declares convergence, spending only",
+    paste(sort(bobyqa_evals), collapse = "-"),
+    "true evaluations regardless of how large a budget it is offered,",
+    "and settling on a value well short of the global optimum. `cmaes`",
+    "and `gensa` both keep using every evaluation they are given and",
+    "keep improving; `gensa` is the first to reach the global optimum,",
+    "at a budget of", min(fastest_to_global), "evaluations. A single",
+    "short trial (the race's own first step) could not have shown this",
+    "-- only a sweep across budgets does -- which is exactly why the race",
+    "commits the remaining budget to whichever engine's short trial led,",
+    "rather than trusting the trial's ranking to hold at every budget.\n"
+  )
+} else {
+  cat(
+    "The budget-sweep figure needs GenSA, cmaes, nloptr and ggplot2 all",
+    "installed; at least one is missing here, so the paragraph above is",
+    "the only account of that comparison on this build.\n"
+  )
+}
+```
+
+## Limits
+
+The sweep above re-solves one synthetic surface at one seed; it shows the
+shape of three engines' convergence on that instance, not a general
+ranking, and the held-out study cited in *The evidence* is what actually
+supports the claim that `auto` beats a fixed single engine on average. The
+race itself commits on the strength of a single short trial per candidate,
+which is why `.auto_select()` never races a noisy objective -- a
+single-trial ranking on noise would rank engines on luck rather than
+performance, and nothing in this vignette exercises that failure mode
+directly. Every example here is a continuous box in two or three
+dimensions; permutation spaces route around racing entirely, to the native
+annealer covered in *Combinatorial optimisation and delta evaluation*.
+
+## What to read next
+
+*Getting started with optimix* covers the two front doors and the result
+object this vignette assumes throughout. *Mapping optima and the orchestra
+manifest* covers `goal = "map"`, a different axis of the same selector,
+including what happens when no installed engine can honour the request.
+*Combinatorial optimisation and delta evaluation* covers the one design
+space `auto` never races: permutations, routed instead to a dedicated
+annealer.
+
+## Reproduce
+
+Seed `42` for the noisy-objective example, `1` for the race, `2` for the
+explicit race, `3` for the budget cap, and `5` for every run in the budget
+sweep.
+
+```{r session-info}
+sessionInfo()
+```

@@ -28,6 +28,7 @@ Suggests:
     dfoptim,
     DiceKriging,
     GenSA,
+    ggplot2,
     knitr,
     nloptr,
     proxymix,

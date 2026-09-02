@@ -2,6 +2,18 @@
 
 ## Documentation
 
+* **All four vignettes brought to the orchestra vignette quality bar.**
+  Every vignette now opens on a stated question, follows the fixed
+  Why/What/Do/Read/Limits/What-to-read-next/Reproduce shape, and carries
+  at least one `ggplot2` figure that shows something its tables cannot: a
+  contour with the found optimum in *Getting started with optimix*, a
+  convergence sweep across the three raced engines in *The auto selector
+  and racing*, a contour with every recovered mode plus a live
+  `optimix_map_abstention` demonstration in *Mapping optima and the
+  orchestra manifest*, and a true-evaluation trajectory figure in
+  *Combinatorial optimisation and delta evaluation*. `ggplot2` is added to
+  `Suggests`, guarded with `requireNamespace()` and a skip sentence
+  wherever a figure needs it.
 * **`optimix_map()`'s vignette now shows a map, not just prints one.** *Mapping
   optima and the orchestra manifest* adds a captioned Himmelblau contour with
   the four recovered modes overlaid and a sentence reading it, and fixes two
