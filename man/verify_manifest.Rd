@@ -28,8 +28,8 @@ verify_manifest(m)
 \seealso{
 \code{\link[=as_orchestra_manifest]{as_orchestra_manifest()}}
 
-Other orchestra manifest: 
-\code{\link{as_orchestra_manifest}()},
-\code{\link{orchestra_manifest}()}
+Other orchestra manifest:
+\code{\link[=as_orchestra_manifest]{as_orchestra_manifest()}},
+\code{\link[=orchestra_manifest]{orchestra_manifest()}}
 }
 \concept{orchestra manifest}

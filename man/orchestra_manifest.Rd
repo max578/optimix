@@ -33,8 +33,8 @@ m@run_id
 \seealso{
 \code{\link[=as_orchestra_manifest]{as_orchestra_manifest()}}, \code{\link[=verify_manifest]{verify_manifest()}}
 
-Other orchestra manifest: 
-\code{\link{as_orchestra_manifest}()},
-\code{\link{verify_manifest}()}
+Other orchestra manifest:
+\code{\link[=as_orchestra_manifest]{as_orchestra_manifest()}},
+\code{\link[=verify_manifest]{verify_manifest()}}
 }
 \concept{orchestra manifest}

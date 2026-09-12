@@ -24,8 +24,8 @@ res <- optimix(function(x) sum(x^2), c(-5, -5), c(5, 5),
 as_optim(res)
 }
 \seealso{
-Other results: 
-\code{\link{optimix}()},
-\code{\link{optimix_map}()}
+Other results:
+\code{\link[=optimix]{optimix()}},
+\code{\link[=optimix_map]{optimix_map()}}
 }
 \concept{results}

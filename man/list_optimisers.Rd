@@ -18,8 +18,8 @@ and the metadata \code{method = "auto"} uses to choose between them.
 list_optimisers()
 }
 \seealso{
-Other engines and registry: 
-\code{\link{optim_engine}()},
-\code{\link{register_optimiser}()}
+Other engines and registry:
+\code{\link[=optim_engine]{optim_engine()}},
+\code{\link[=register_optimiser]{register_optimiser()}}
 }
 \concept{engines and registry}

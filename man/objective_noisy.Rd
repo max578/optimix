@@ -21,9 +21,9 @@ optimiser.
 objective_noisy(sd = 0.1)
 }
 \seealso{
-Other objective declarations: 
-\code{\link{objective_deterministic}()},
-\code{\link{objective_expensive}()},
-\code{\link{objective_spec}()}
+Other objective declarations:
+\code{\link[=objective_deterministic]{objective_deterministic()}},
+\code{\link[=objective_expensive]{objective_expensive()}},
+\code{\link[=objective_spec]{objective_spec()}}
 }
 \concept{objective declarations}

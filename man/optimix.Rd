@@ -77,8 +77,8 @@ prob <- optim_problem(
 optimix(prob, method = "base_optim")
 }
 \seealso{
-Other results: 
-\code{\link{as_optim}()},
-\code{\link{optimix_map}()}
+Other results:
+\code{\link[=as_optim]{as_optim()}},
+\code{\link[=optimix_map]{optimix_map()}}
 }
 \concept{results}

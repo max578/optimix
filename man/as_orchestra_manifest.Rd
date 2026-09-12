@@ -45,8 +45,8 @@ as_orchestra_manifest(res)
 \seealso{
 \code{\link[=verify_manifest]{verify_manifest()}}, \code{\link[=optimix]{optimix()}}
 
-Other orchestra manifest: 
-\code{\link{orchestra_manifest}()},
-\code{\link{verify_manifest}()}
+Other orchestra manifest:
+\code{\link[=orchestra_manifest]{orchestra_manifest()}},
+\code{\link[=verify_manifest]{verify_manifest()}}
 }
 \concept{orchestra manifest}

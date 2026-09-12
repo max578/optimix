@@ -22,9 +22,9 @@ permutation (an integer vector).
 space_permutation(5)
 }
 \seealso{
-Other design spaces: 
-\code{\link{opt_space}()},
-\code{\link{optim_problem}()},
-\code{\link{space_box}()}
+Other design spaces:
+\code{\link[=opt_space]{opt_space()}},
+\code{\link[=optim_problem]{optim_problem()}},
+\code{\link[=space_box]{space_box()}}
 }
 \concept{design spaces}

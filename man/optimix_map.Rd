@@ -50,8 +50,8 @@ optimix_map(
 )
 }
 \seealso{
-Other results: 
-\code{\link{as_optim}()},
-\code{\link{optimix}()}
+Other results:
+\code{\link[=as_optim]{as_optim()}},
+\code{\link[=optimix]{optimix()}}
 }
 \concept{results}

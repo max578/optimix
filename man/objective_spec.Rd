@@ -24,9 +24,9 @@ treat it appropriately. Construct one with \code{\link[=objective_deterministic]
 objective_spec(kind = "noisy", noise_sd = 0.1)
 }
 \seealso{
-Other objective declarations: 
-\code{\link{objective_deterministic}()},
-\code{\link{objective_expensive}()},
-\code{\link{objective_noisy}()}
+Other objective declarations:
+\code{\link[=objective_deterministic]{objective_deterministic()}},
+\code{\link[=objective_expensive]{objective_expensive()}},
+\code{\link[=objective_noisy]{objective_noisy()}}
 }
 \concept{objective declarations}

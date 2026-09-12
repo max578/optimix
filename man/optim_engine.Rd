@@ -71,8 +71,8 @@ optim_engine(
 )
 }
 \seealso{
-Other engines and registry: 
-\code{\link{list_optimisers}()},
-\code{\link{register_optimiser}()}
+Other engines and registry:
+\code{\link[=list_optimisers]{list_optimisers()}},
+\code{\link[=register_optimiser]{register_optimiser()}}
 }
 \concept{engines and registry}

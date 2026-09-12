@@ -17,9 +17,9 @@ point return the same value. This is the default for \code{\link[=optim_problem]
 objective_deterministic()
 }
 \seealso{
-Other objective declarations: 
-\code{\link{objective_expensive}()},
-\code{\link{objective_noisy}()},
-\code{\link{objective_spec}()}
+Other objective declarations:
+\code{\link[=objective_expensive]{objective_expensive()}},
+\code{\link[=objective_noisy]{objective_noisy()}},
+\code{\link[=objective_spec]{objective_spec()}}
 }
 \concept{objective declarations}

@@ -17,9 +17,9 @@ surrogate-model (Bayesian-optimisation) engine that spends few evaluations.
 objective_expensive()
 }
 \seealso{
-Other objective declarations: 
-\code{\link{objective_deterministic}()},
-\code{\link{objective_noisy}()},
-\code{\link{objective_spec}()}
+Other objective declarations:
+\code{\link[=objective_deterministic]{objective_deterministic()}},
+\code{\link[=objective_noisy]{objective_noisy()}},
+\code{\link[=objective_spec]{objective_spec()}}
 }
 \concept{objective declarations}

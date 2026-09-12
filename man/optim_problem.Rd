@@ -48,9 +48,9 @@ optim_problem(
 )
 }
 \seealso{
-Other design spaces: 
-\code{\link{opt_space}()},
-\code{\link{space_box}()},
-\code{\link{space_permutation}()}
+Other design spaces:
+\code{\link[=opt_space]{opt_space()}},
+\code{\link[=space_box]{space_box()}},
+\code{\link[=space_permutation]{space_permutation()}}
 }
 \concept{design spaces}
