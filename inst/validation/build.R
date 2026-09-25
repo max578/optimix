@@ -4,7 +4,7 @@
 ##
 ## report/build.R -- full build driver for the optimix validation dossier.
 ##
-## Usage (from the report directory):
+## Usage (from the report directory, with PV_ENGINE set):
 ##   Rscript build.R all       # benches -> gates -> PDFs + explorer (default)
 ##   Rscript build.R bench     # run the benchmark battery only (cache + figures)
 ##   Rscript build.R gate      # run the pre-render gates only
@@ -14,7 +14,13 @@ args <- commandArgs(trailingOnly = TRUE)
 what <- if (length(args)) args[[1]] else "all"
 
 REPORT <- normalizePath(".")
-PV_ENG <- path.expand("~/.claude/skills/pkg-validation/engine")
+## The validation engine (assemble.R, audit_docs.R, build_explorer.R, gates.R)
+## is not shipped with the package; point PV_ENGINE at its directory.
+PV_ENG <- Sys.getenv("PV_ENGINE")
+if (!nzchar(PV_ENG) || !dir.exists(PV_ENG)) {
+  stop("Set the PV_ENGINE environment variable to the directory holding the ",
+       "validation engine scripts.", call. = FALSE)
+}
 source(file.path(REPORT, "_setup.R"))
 for (.f in c("assemble.R", "audit_docs.R", "build_explorer.R", "gates.R")) {
   source(file.path(PV_ENG, .f))
@@ -38,8 +44,9 @@ if (what %in% c("render", "all")) {
 }
 if (what %in% c("docset", "render", "all")) {
   ## The external-auditor document set: the comprehensive all-in-one PDF, the
-  ## crisp introductory primer, the audit-plan PDF, and the AI-auditor dossier
-  ## (markdown + evidence.json). Content-once: each is a view over the same cards.
+  ## crisp introductory primer, the audit-plan PDF, and the machine-readable
+  ## auditor dossier (markdown + evidence.json). Content-once: each is a view
+  ## over the same cards.
   message("== building the all-in-one + crisp PDFs ==")
   pv_build_allinone(REPORT, "pdf", title = TITLE, depth = "comprehensive")
   pv_build_allinone(REPORT, "pdf", title = TITLE, depth = "crisp")
@@ -47,7 +54,7 @@ if (what %in% c("docset", "render", "all")) {
   pv_render_plan(file.path(REPORT, "audit_plan.md"),
                  file.path(REPORT, "pdf", "audit_plan.pdf"),
                  title = "optimix validation: computational audit plan")
-  message("== building the AI-auditor dossier ==")
+  message("== building the machine-readable auditor dossier ==")
   # Two-sided conformance coverage is scored over the exports that CAN carry both
   # a positive and a negative case. Five exports are STRUCTURALLY single-sided and
   # are excluded from the coverage surface -- not fabricated against, since a
