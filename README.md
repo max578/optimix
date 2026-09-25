@@ -10,6 +10,8 @@ problem contract and one verb. `optimix(fn, lower, upper)` behaves like
 the problem at hand -- per-instance algorithm selection, not a fixed
 favourite -- and every result records which engine ran and why.
 
+## Usage
+
 ``` r
 library(optimix)
 
@@ -103,6 +105,17 @@ any of the suggested engine packages widens what `auto` can route to, and
 Four vignettes walk the surface: *Getting started with optimix*, *The auto
 selector and racing*, *Combinatorial optimisation and delta evaluation*,
 and *Mapping optima and the orchestra manifest*.
+
+## Contributing
+
+Bug reports and suggestions are welcome as
+[GitHub issues](https://github.com/max578/optimix/issues).
+
+## Citation
+
+``` r
+citation("optimix")
+```
 
 ## Licence
 

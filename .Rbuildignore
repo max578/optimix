@@ -5,3 +5,6 @@
 ^\.lintr$
 ^\.github$
 ^_pkgdown\.yml$
+^\.claude$
+^\.positai$
+^\.cursor$
