@@ -43,7 +43,7 @@
   sp <- problem@space
   # Honour the problem's seed: from_objective() is importance-sampled, so an
   # unseeded call is irreproducible. Wrap fn in a counter so the result's
-  # counts are honest rather than NA.
+  # counts are recorded rather than NA.
   .maybe_seed(problem)
   fn <- problem@fn
   counter <- new.env(parent = emptyenv())

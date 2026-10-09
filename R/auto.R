@@ -227,7 +227,7 @@
 #'
 #' Races each candidate on a small fraction of the budget from a shared warm
 #' start, then commits the remainder to the leader, warm-started from its own
-#' racing best. The evaluation budget is split honestly: the race trials and
+#' racing best. The evaluation budget is split in full: the race trials and
 #' the ELA sample are both charged to the result's count, and the final run
 #' receives only what is left of the total after both.
 #'

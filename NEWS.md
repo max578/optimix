@@ -1,4 +1,4 @@
-# optimix (development version)
+# optimix 0.2.0
 
 ## Documentation
 
@@ -42,7 +42,7 @@
   manifest verified only under the R version that emitted it. All three are
   fixed to match the reference implementation field for field.
 * **Every orchestra-facing decline is now a classed condition.** The
-  proxymix engine's "no mode inside the bounds" failure, the honest
+  proxymix engine's "no mode inside the bounds" failure, the
   `goal = "map"` fallback when no map-emitting engine fits, and a
   non-converged optimum's manifest abstention are now recognisable by the
   federation's shared `is_orchestra_decline()` predicate from the class
@@ -70,9 +70,9 @@
   overshoot) or refuses with an actionable message stating its minimum; the
   race subtracts both the trials and the sample from the final run's share.
   When `max_evals` is left unset, engine defaults are unchanged. A dedicated
-  budget-honesty test file pins `counts[["function"]]` to a ground-truth
+  budget-accounting test file pins `counts[["function"]]` to a ground-truth
   counter for every engine family.
-* **`cmaes_ipop` removed after honest re-measurement.** The engine promised
+* **`cmaes_ipop` removed after re-measurement.** The engine promised
   IPOP restarts with a doubled population, but the doubled `lambda` was
   computed and never passed to `cmaes::cma_es()`, and its restart loop
   swallowed every error -- including errors raised by the user's objective --
@@ -108,7 +108,7 @@
   The session's `.Random.seed` is saved and restored around a seeded solve,
   so simulation studies that interleave optimix calls with their own draws
   keep their reproducibility.
-* **Selection and reporting honesty.** The landscape sample now respects
+* **Selection and reporting accuracy.** The landscape sample now respects
   `maximise = TRUE` (race trials previously warm-started from the *worst*
   sampled point on maximisation problems); one failing engine no longer
   aborts the whole race while healthy candidates remain (the failure is
@@ -145,7 +145,7 @@
   optimum; `goal = "optimum"` (the default) keeps the cost-efficient
   single-best-point selection, with the mixture engine deliberately kept out of
   that race. The route is data-driven off the registry's `emits_map` metadata and
-  falls back honestly -- the single best optimum, with a stated reason -- when no
+  falls back -- the single best optimum, with a stated reason -- when no
   map engine fits (proxymix absent, or `p > 10`). Grounded in the
   proxymix-vs-optimix `from_objective` routing study (2026-06-24): the mixture
   engine uniquely wins find-all-modes / uncertainty problems but loses

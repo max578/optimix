@@ -153,7 +153,7 @@ maximise <- function(fn, lower, upper, ...) {
     inner$problem <- problem
     # A mixture map produced on the reduced problem lives in the reduced
     # coordinates, so lifting `$par` alone would leave it inconsistent with
-    # the full-dimensional result. Dropping it is the honest option.
+    # the full-dimensional result. It is therefore dropped.
     if (!is.null(inner$map)) {
       warning(call. = FALSE, paste(
         "The mixture map is not available for a problem with pinned",

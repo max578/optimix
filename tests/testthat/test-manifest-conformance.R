@@ -1,37 +1,23 @@
 # OPT-09: optimix's only manifest oracle was its own verify_manifest() --
-# self-consistency, not correspondence to the federation's reference contract
-# (ORCHESTRA_dev/integration/orchestra_manifest.R, sourced by
-# ORCHESTRA_dev/integration/test_manifest_conformance.R for PESTO, proxymix and
-# cdzoo). This file is optimix's own copy of that same independent-oracle
-# check: it sources the REFERENCE implementation (read-only; never modified
-# from here) and runs an optimix-emitted manifest through the reference's own
-# `verify_manifest()` / `consume_manifest()` -- not optimix's copies of those
-# functions. A schema or hash-recipe drift between optimix's local
-# implementation and the reference (the OPT-01/02/03 class of defect) fails
-# here even if optimix's own `test-manifest.R` is green.
+# self-consistency, not correspondence to the orchestra's reference contract.
+# This file runs an optimix-emitted manifest through the reference
+# implementation's own `verify_manifest()` / `consume_manifest()`, so a schema
+# or hash-recipe drift between optimix's local implementation and the
+# reference fails here even if optimix's own `test-manifest.R` is green.
 #
-# optimix_dev and ORCHESTRA_dev are sibling workspaces, not a package
-# dependency -- the whole suite here skips gracefully (not fails) when
-# ORCHESTRA_dev is not checked out alongside (e.g. a CRAN build, a checkout
-# with only this one repository).
+# The reference implementation is not part of this package. Set the
+# environment variable OPTIMIX_MANIFEST_REFERENCE to its file to run these
+# tests; they skip when it is unset.
 
 .locate_orchestra_dev <- function() {
-  probe <- normalizePath(getwd(), mustWork = FALSE)
-  for (i1 in seq_len(8L)) {
-    cand <- file.path(probe, "ORCHESTRA_dev", "integration",
-                      "orchestra_manifest.R")
-    if (file.exists(cand)) return(cand)
-    parent <- dirname(probe)
-    if (identical(parent, probe)) break  # reached filesystem root
-    probe <- parent
-  } # ends i1, walking up from getwd()
-  NULL
+  cand <- Sys.getenv("OPTIMIX_MANIFEST_REFERENCE")
+  if (nzchar(cand) && file.exists(cand)) cand else NULL
 }
 
 test_that("OPT-09: an optimix manifest passes the federation's own conformance checks", {
   ref_path <- .locate_orchestra_dev()
   skip_if(is.null(ref_path),
-          "ORCHESTRA_dev reference contract not checked out alongside")
+          "orchestra manifest reference implementation not available")
   # Sourcing the reference file registers `as_orchestra_manifest` S7 methods
   # dispatched on `PESTO::pesto_ensemble_manifest` and `proxymix::gmm_fit`, so
   # both packages must be attachable for it to source cleanly -- Suggests-only

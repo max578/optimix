@@ -24,7 +24,7 @@
 # other.
 
 # The manifest schema version this member emits. Tracks the reference
-# implementation (integration/orchestra_manifest.R in ORCHESTRA_dev); bump
+# implementation of the orchestra manifest contract; bump
 # only with an additive (x.y) or breaking (x.0) change there. Currently at
 # 2.0.0-draft, which bumped the payload hash recipe (see `.hash_payload()`
 # below) to strip the version-varying serialize() header.
@@ -341,10 +341,10 @@ as_orchestra_manifest.optimix_result <- function(x, ..., run_id = NULL,
   )
 
   # refusal contract: a non-converged optimum is an "assumptions not met"
-  # verdict, already recorded honestly in `summary$abstained` -- but a bare
+  # verdict, already recorded in `summary$abstained` -- but a bare
   # boolean buried in a slot forces every consumer to know optimix's schema.
   # Stamping the class lets the orchestra-wide predicate
-  # `is_orchestra_decline()` (integration/refusal_contract.R) recognise the
+  # `is_orchestra_decline()` recognise the
   # abstention from `class(m)` alone, with no optimix-specific dispatch, the
   # same way terroir's and bourse's own refusals are recognised. Prepending
   # (not replacing) keeps `S7_inherits(m, orchestra_manifest)` true (OPT-01)
