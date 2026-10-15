@@ -1,7 +1,9 @@
-# optimix
+# optimix <img src="man/figures/logo.png" align="right" height="139" alt="optimix logo" />
 
 <!-- badges: start -->
 [![R-CMD-check](https://github.com/max578/optimix/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/max578/optimix/actions/workflows/R-CMD-check.yaml)
+[![Codecov test coverage](https://codecov.io/gh/max578/optimix/graph/badge.svg)](https://app.codecov.io/gh/max578/optimix)
+[![r-universe](https://max578.r-universe.dev/badges/optimix)](https://max578.r-universe.dev/optimix)
 <!-- badges: end -->
 
 optimix gives a curated portfolio of efficient optimisers one unified
@@ -91,8 +93,19 @@ the question.
 
 ## Installation
 
+Pre-built binaries from r-universe:
+
 ``` r
-# development version (private repository)
+install.packages(
+  "optimix",
+  repos = c("https://max578.r-universe.dev", "https://cloud.r-project.org")
+)
+```
+
+Or the development version from GitHub:
+
+``` r
+# install.packages("remotes")
 remotes::install_github("max578/optimix")
 ```
 

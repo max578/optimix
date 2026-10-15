@@ -5,6 +5,8 @@
 \alias{optimix-package}
 \title{optimix: A Unified Contract and Auto-Selector for Efficient Optimisers}
 \description{
+\if{html}{\figure{logo.png}{options: style='float: right' alt='logo' width='120'}}
+
 Provides a single typed problem contract over a curated portfolio of efficient optimisers, with an automatic per-instance selector that picks the best optimiser for a given problem and returns it in an 'stats::optim()'-compatible result object. The base solver runs with no suggested packages installed; each additional engine, and an optional mixture-valued mapper from 'proxymix', is loaded lazily only when used.
 }
 \seealso{
