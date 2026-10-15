@@ -1,3 +1,11 @@
+# optimix (development version)
+
+* The package has a logo.
+* README has status badges, and its installation section points to
+  r-universe and the public GitHub repository.
+* `citation("optimix")` reports the installed version; it said 0.1.0.
+* CI runs lintr (report-only) and test coverage.
+
 # optimix 0.2.0
 
 ## Documentation
