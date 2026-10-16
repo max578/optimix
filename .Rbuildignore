@@ -8,3 +8,5 @@
 ^\.claude$
 ^\.positai$
 ^\.cursor$
+^docs$
+^pkgdown$

@@ -37,7 +37,7 @@ Suggests:
     testthat (>= 3.0.0)
 VignetteBuilder:
     knitr
-URL: https://github.com/max578/optimix
+URL: https://github.com/max578/optimix, https://max578.github.io/optimix/
 BugReports: https://github.com/max578/optimix/issues
 Config/testthat/edition: 3
 Roxygen: list(markdown = TRUE)
