@@ -80,10 +80,10 @@ maintenance risk, and each wrapper must reproduce its source package's
 result before it is admitted. One engine has already been retired by its
 own re-measurement -- the curation rule applies in both directions.
 
-## Related work
+## Related packages
 
-`optimx` and `gloptim` unify many optimisers behind one interface, and
-`nloptr` exposes a large algorithm library; optimix differs in the
+`optimx` brings many of R's optimisers behind one interface, and
+`nloptr` exposes the NLopt algorithm library; optimix differs in the
 per-instance `auto` selector with recorded provenance, the enforced
 evaluation budgets, the typed contract spanning noisy, expensive, and
 combinatorial regimes, and the mixture-valued optima map. If you want to
