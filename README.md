@@ -1,9 +1,11 @@
 # optimix <img src="man/figures/logo.png" align="right" height="139" alt="optimix logo" />
 
 <!-- badges: start -->
+[![Lifecycle: experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
 [![R-CMD-check](https://github.com/max578/optimix/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/max578/optimix/actions/workflows/R-CMD-check.yaml)
 [![Codecov test coverage](https://codecov.io/gh/max578/optimix/graph/badge.svg)](https://app.codecov.io/gh/max578/optimix)
 [![r-universe](https://max578.r-universe.dev/badges/optimix)](https://max578.r-universe.dev/optimix)
+[![pkgdown](https://github.com/max578/optimix/actions/workflows/pkgdown.yaml/badge.svg)](https://max578.github.io/optimix/)
 <!-- badges: end -->
 
 optimix gives a curated portfolio of efficient optimisers one unified
